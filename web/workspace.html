@@ -250,16 +250,16 @@ Try asking me something, or use the quick actions in the sidebar.</div>
           <iframe id="copilot-iframe" src="" allow="microphone" style="width:100%;height:100%;border:none;border-radius:10px"></iframe>
         </div>
         <div class="copilot-setup" id="copilot-setup-card">
-          <h3>Connect Copilot Studio</h3>
-          <div class="step-item"><div class="step-num">1</div><div>Start a free Copilot Studio trial at <strong>copilotstudio.microsoft.com</strong></div></div>
-          <div class="step-item"><div class="step-num">2</div><div>Create a new agent → "AskOps IT &amp; HR Agent"</div></div>
-          <div class="step-item"><div class="step-num">3</div><div>Add an HTTP Action pointing to your n8n webhook URL</div></div>
-          <div class="step-item"><div class="step-num">4</div><div>Publish the agent → Go to <strong>Demo Website</strong> channel</div></div>
-          <div class="step-item"><div class="step-num">5</div><div>Copy the embed URL and paste it below</div></div>
+          <h3>Connect your Copilot Studio agent</h3>
+          <div class="step-item"><div class="step-num">1</div><div>In Copilot Studio, open your AskOps agent → <strong>Publish</strong></div></div>
+          <div class="step-item"><div class="step-num">2</div><div>Go to <strong>Channels</strong> → <strong>Demo website</strong> → click <strong>Go to demo website</strong></div></div>
+          <div class="step-item"><div class="step-num">3</div><div>Copy the full page URL (looks like <code style="font-size:.78rem;color:var(--accent)">https://…copilotstudio.microsoft.com/…</code>)</div></div>
+          <div class="step-item"><div class="step-num">4</div><div>Paste it below — the agent loads in this panel. The trace panel on the right still shows every tool call in real time.</div></div>
           <div class="copilot-url-row">
-            <input class="copilot-url-input" id="copilot-embed-url" placeholder="https://webchat.botframework.com/embed/..." onkeydown="if(event.key==='Enter')saveCopilotUrl()">
+            <input class="copilot-url-input" id="copilot-embed-url" placeholder="https://copilotstudio.microsoft.com/environments/…" onkeydown="if(event.key==='Enter')saveCopilotUrl()">
             <button class="copilot-save-btn" onclick="saveCopilotUrl()">Load</button>
           </div>
+          <p style="font-size:.72rem;color:var(--text-3);margin-top:10px;line-height:1.5">The trace panel (right) polls the same database as both tabs — tool calls from Copilot Studio appear there automatically.</p>
         </div>
       </div>
     </div>
@@ -283,9 +283,68 @@ Try asking me something, or use the quick actions in the sidebar.</div>
 <script>
 const API = window.ASKOPS_API;
 const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_WORKSPACE_ID;
-
-// ── Persona state ─────────────────────────────────────────────────────────────
 let currentPersona = localStorage.getItem('askops_persona') || 'EMP-042';
+let chatHistory = [];
+let isBusy = false;
+
+// ── Chat persistence ──────────────────────────────────────────────────────────
+function getCacheKey() { return `askops_chat_${workspaceId}_${currentPersona}`; }
+function persistChat() {
+  try { localStorage.setItem(getCacheKey(), JSON.stringify(chatHistory.slice(-60))); } catch(e) {}
+}
+function restoreChat() {
+  try {
+    const raw = localStorage.getItem(getCacheKey());
+    if (!raw) return false;
+    const history = JSON.parse(raw);
+    if (!history || !history.length) return false;
+    messagesEl.innerHTML = '';
+    history.forEach(m => m.role === 'user' ? _render('user', m.text) : _render('bot', m.text, m.source));
+    chatHistory = [...history];
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Render helpers ────────────────────────────────────────────────────────────
+const messagesEl = document.getElementById('messages');
+const inputEl    = document.getElementById('chat-input');
+const sendBtn    = document.getElementById('send-btn');
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+function _render(role, text, source) {
+  const srcHtml = source
+    ? `<br><span class="source-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>${escHtml(source)}</span>`
+    : '';
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div class="bubble">${escHtml(text)}${srcHtml}</div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+function addUserMsg(text) {
+  _render('user', text);
+  chatHistory.push({role:'user', text});
+  persistChat();
+}
+function addBotMsg(text, source) {
+  _render('bot', text, source);
+  chatHistory.push({role:'bot', text, source: source||null});
+  persistChat();
+}
+function addThinkingMsg() {
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `<div class="bubble thinking">Thinking…</div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+// ── Persona ───────────────────────────────────────────────────────────────────
 function applyPersonaUI() {
   const isHR = currentPersona === 'EMP-007';
   document.getElementById('persona-name-label').textContent = isHR ? 'John Lee' : 'Adarsh Gella';
@@ -296,15 +355,27 @@ function applyPersonaUI() {
   document.getElementById('btn-john').className   = 'persona-btn' + (currentPersona==='EMP-007'?' active':'');
 }
 async function switchPersona(code, key) {
+  if (currentPersona === code) return;
   currentPersona = code;
   localStorage.setItem('askops_persona', code);
+  chatHistory = [];
   applyPersonaUI();
-  addBotMsg(`Switched to ${key === 'adarsh' ? 'Adarsh Gella (Employee)' : 'John Lee (HR Manager)'}. Your permissions have changed.`);
+  messagesEl.innerHTML = '';
+  addBotMsg(`Switched to ${key === 'adarsh' ? 'Adarsh Gella (Employee)' : 'John Lee (HR Manager)'}. Your tools and permissions have changed.`);
   try {
-    await fetch(API + '/webhook/api-set-persona', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({workspace_id:workspaceId, employee_code:code})});
+    await fetch(API + '/webhook/api-set-persona', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({workspace_id: workspaceId, employee_code: code})
+    });
   } catch(e) {}
+  pollMetrics();
 }
 applyPersonaUI();
+
+// Restore previous session or capture welcome message for persistence
+if (!restoreChat()) {
+  chatHistory = [{role:'bot', text:'Hi! I\'m your AskOps assistant. I can answer HR and IT questions, help you request PTO, check ticket status, and more.\n\nTry asking me something, or use the quick actions in the sidebar.', source:null}];
+}
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -314,7 +385,7 @@ function switchTab(tab) {
   });
 }
 
-// ── Copilot Studio ───────────────────────────────────────────────────────────
+// ── Copilot Studio ────────────────────────────────────────────────────────────
 const savedCopilotUrl = localStorage.getItem('askops_copilot_url');
 if (savedCopilotUrl) {
   document.getElementById('copilot-embed-url').value = savedCopilotUrl;
@@ -332,134 +403,196 @@ function loadCopilotIframe(url) {
   document.getElementById('copilot-setup-card').style.marginTop = '12px';
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
-const messagesEl = document.getElementById('messages');
-const inputEl = document.getElementById('chat-input');
-const sendBtn = document.getElementById('send-btn');
-
-function addBotMsg(text, sourceTag) {
-  const div = document.createElement('div');
-  div.className = 'msg bot';
-  const sourceHtml = sourceTag ? `<br><span class="source-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>${escHtml(sourceTag)}</span>` : '';
-  div.innerHTML = `<div class="bubble">${escHtml(text)}${sourceHtml}</div>`;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-  return div;
-}
-function addUserMsg(text) {
-  const div = document.createElement('div');
-  div.className = 'msg user';
-  div.innerHTML = `<div class="bubble">${escHtml(text)}</div>`;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-function addThinkingMsg() {
-  const div = document.createElement('div');
-  div.className = 'msg bot';
-  div.innerHTML = `<div class="bubble thinking">Thinking…</div>`;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-  return div;
-}
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
+// ── Intent detection (expanded regex + router fallback) ───────────────────────
 function detectIntent(text) {
   const t = text.toLowerCase();
-  if (/\b(pto balance|days (off|remaining)|vacation balance|time off balance)\b/.test(t)) return 'pto_balance';
-  if (/\b(request (pto|time off|vacation|leave)|book time off|take (a day|leave|time off))\b/.test(t)) return 'request_pto';
-  if (/\b(my (tickets?|requests?|issues?)|ticket status|open tickets?)\b/.test(t)) return 'tickets';
-  if (/\b(my profile|who am i|my info|my details)\b/.test(t)) return 'profile';
-  if (/\b(escalate|urgent|human agent|talk to (a )?human)\b/.test(t)) return 'escalate';
-  if (/\b(rate|feedback|thumbs|satisfied)\b/.test(t)) return 'feedback';
+  // PTO balance — catches "how many PTO are left", "check my leave", etc.
+  if (/how (many|much).*(pto|vacation|leave|days|time.?off)/.test(t)) return 'pto_balance';
+  if (/(pto|vacation|leave|time.?off).*(left|remaining|balance|have|check|see)/.test(t)) return 'pto_balance';
+  if (/(check|see|show|view|what.?s|what is).*(my).*(pto|leave|vacation|balance|days)/.test(t)) return 'pto_balance';
+  if (/\b(my pto|pto balance|leave balance|vacation balance|days remaining|days left)\b/.test(t)) return 'pto_balance';
+  // PTO request
+  if (/\b(request|take|book|schedule|apply for|submit|want|need|like).{0,25}(pto|time.?off|vacation|leave|day.?off)\b/.test(t)) return 'request_pto';
+  if (/\b(pto|time.?off|vacation|leave).{0,15}(request|apply|submit|book)\b/.test(t)) return 'request_pto';
+  // PTO request status
+  if (/\b(my|show|list|view|check).{0,10}(pto|leave|vacation|time.?off).{0,10}(request|status|history)\b/.test(t)) return 'my_requests';
+  if (/\b(status of my|show my).{0,10}(pto|leave|time off|request)\b/.test(t)) return 'my_requests';
+  // Tickets — check
+  if (/\b(my|show|list|view|open|check).{0,10}(tickets?|issues?|case)\b/.test(t)) return 'tickets';
+  if (/\bticket (status|update|track)\b/.test(t)) return 'tickets';
+  // Ticket — create
+  if (/\b(create|open|raise|submit|log|report|file).{0,10}(ticket|issue|request|bug|incident|problem)\b/.test(t)) return 'create_ticket';
+  // Profile
+  if (/\b(my profile|who am i|my info|my details|my account|my employee (code|id))\b/.test(t)) return 'profile';
+  // Compensation
+  if (/\b(salary|compensation|my pay|how much.{0,10}(earn|make|paid|compensated))\b/.test(t)) return 'compensation';
+  // Pending PTO list (HR)
+  if (/\b(all|pending|list all).{0,10}(pto|leave|time.?off|requests)\b/.test(t)) return 'list_pending';
+  // Escalate
+  if (/\b(escalate|talk to|speak to|connect.{0,10}(human|person|agent)|human help|live agent)\b/.test(t)) return 'escalate';
+  // Feedback
+  if (/\b(rate|feedback|thumbs|satisfied|rating)\b/.test(t)) return 'feedback';
   return 'search';
 }
 
+async function resolveIntent(text) {
+  const local = detectIntent(text);
+  if (local !== 'search') return local;
+  // Groq router as fallback for ambiguous messages
+  try {
+    const res = await callTool('/webhook/tool-router', {query: text});
+    if (res.classification === 'action') {
+      const map = {
+        get_pto_balance:'pto_balance', request_pto:'request_pto',
+        get_my_requests:'my_requests', get_my_profile:'profile',
+        create_ticket:'create_ticket', get_ticket_status:'tickets',
+        get_compensation:'compensation', list_pending_pto:'list_pending',
+        escalate_to_human:'escalate', submit_feedback:'feedback',
+      };
+      if (res.tool && map[res.tool]) return map[res.tool];
+    }
+  } catch(e) {}
+  return 'search';
+}
+
+// ── Date extractor for PTO requests ──────────────────────────────────────────
+function extractDates(text) {
+  const iso = text.match(/\d{4}-\d{2}-\d{2}/g);
+  if (iso && iso.length >= 2) return {start: iso[0], end: iso[1]};
+  if (iso && iso.length === 1) return {start: iso[0], end: iso[0]};
+  return null;
+}
+
+function inferCategory(text) {
+  const t = text.toLowerCase();
+  if (/\b(hr|payroll|benefits|performance|harassment)\b/.test(t)) return 'hr';
+  if (/\b(facilities|office|room|furniture|parking)\b/.test(t)) return 'facilities';
+  return 'it';
+}
+
+// ── Tool caller ───────────────────────────────────────────────────────────────
 async function callTool(path, body) {
-  const res = await fetch(API + path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const res = await fetch(API + path, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
 
+// ── Response formatter ────────────────────────────────────────────────────────
 function formatToolResponse(intent, data) {
   if (data.error) return data.error;
-  if (intent === 'pto_balance') {
-    if (data.balance_days != null) return `You have ${data.balance_days} PTO days remaining (${data.accrued_ytd || 0} accrued this year, ${data.used_ytd || 0} used).`;
-    return JSON.stringify(data, null, 2);
+  if (data.message) return data.message;
+  switch (intent) {
+    case 'pto_balance':
+      return data.balance_days != null
+        ? `You have ${data.balance_days} PTO days remaining.`
+        : JSON.stringify(data, null, 2);
+    case 'profile':
+      return [
+        `${data.full_name} · ${data.title}`,
+        `Department: ${data.department}`,
+        `Employee code: ${data.employee_code}`,
+        `Manager: ${data.manager_name || 'N/A'}`,
+        data.hire_date ? `Hire date: ${data.hire_date}` : ''
+      ].filter(Boolean).join('\n');
+    case 'tickets': {
+      const rows = data.tickets || data.rows || [];
+      if (!rows.length) return 'No tickets found.';
+      return rows.map(t => `[${t.ticket_code||t.code||t.id}] ${t.title}\n  ${t.status} · ${t.priority}`).join('\n\n');
+    }
+    case 'my_requests': {
+      const rows = data.requests || data.rows || [];
+      if (!rows.length) return 'No PTO requests found.';
+      return rows.map(r => `[${r.code}] ${r.start_date} to ${r.end_date} (${r.days} days)\n  Status: ${r.status}${r.decision_note ? ' · '+r.decision_note : ''}`).join('\n\n');
+    }
+    case 'list_pending': {
+      const rows = data.requests || data.rows || [];
+      if (!rows.length) return 'No pending PTO requests.';
+      return rows.map(r => `[${r.code}] ${r.employee_name} · ${r.start_date} to ${r.end_date} (${r.days} days)`).join('\n');
+    }
+    case 'create_ticket':
+      return data.ticket_code || data.code
+        ? `Ticket ${data.ticket_code||data.code} created. We'll look into it.`
+        : JSON.stringify(data);
+    case 'compensation':
+      return data.base_salary
+        ? `${data.full_name||''}: ${data.currency||'USD'} ${Number(data.base_salary).toLocaleString()} / year`
+        : JSON.stringify(data);
+    case 'search':
+      return data.answer || data.text || JSON.stringify(data);
+    default:
+      return JSON.stringify(data, null, 2);
   }
-  if (intent === 'profile') {
-    return `${data.full_name} · ${data.title}\nDepartment: ${data.department}\nEmployee Code: ${data.employee_code}\nManager: ${data.manager_name || 'N/A'}\nHire Date: ${data.hire_date || 'N/A'}`;
-  }
-  if (intent === 'tickets') {
-    const rows = data.tickets || data.rows || [];
-    if (!rows.length) return 'No tickets found.';
-    return rows.map(t => `[${t.ticket_code || t.id}] ${t.title} · ${t.status} · ${t.priority}`).join('\n');
-  }
-  if (intent === 'search') {
-    return data.answer || data.text || JSON.stringify(data);
-  }
-  return JSON.stringify(data, null, 2);
 }
 
+// ── Main send ─────────────────────────────────────────────────────────────────
 async function sendMsg(text) {
-  if (!text || !text.trim()) return;
+  text = (text || '').trim();
+  if (!text || isBusy) return;
   inputEl.value = '';
-  addUserMsg(text);
+  isBusy = true;
   sendBtn.disabled = true;
+  addUserMsg(text);
   const thinking = addThinkingMsg();
   try {
-    const intent = detectIntent(text);
+    const intent = await resolveIntent(text);
     let data, source;
-    if (intent === 'pto_balance') { data = await callTool('/webhook/tool-get-pto-balance', {}); }
-    else if (intent === 'profile') { data = await callTool('/webhook/tool-get-my-profile', {}); }
-    else if (intent === 'tickets') { data = await callTool('/webhook/tool-get-ticket-status', {}); }
-    else if (intent === 'escalate') { data = await callTool('/webhook/tool-escalate-to-human', {summary: text}); }
-    else if (intent === 'request_pto') {
-      data = {answer: "I can help you request PTO. Please use: /request YYYY-MM-DD YYYY-MM-DD reason\nExample: /request 2026-12-24 2026-12-26 Holiday vacation"};
-      source = null;
-    }
-    else {
+    if (intent === 'pto_balance') {
+      data = await callTool('/webhook/tool-get-pto-balance', {});
+    } else if (intent === 'profile') {
+      data = await callTool('/webhook/tool-get-my-profile', {});
+    } else if (intent === 'tickets') {
+      data = await callTool('/webhook/tool-get-ticket-status', {});
+    } else if (intent === 'my_requests') {
+      data = await callTool('/webhook/tool-get-my-requests', {});
+    } else if (intent === 'list_pending') {
+      data = await callTool('/webhook/tool-list-pending-pto', {});
+    } else if (intent === 'escalate') {
+      data = await callTool('/webhook/tool-escalate-to-human', {summary: text});
+    } else if (intent === 'compensation') {
+      data = await callTool('/webhook/tool-get-compensation', {employee_name_or_code: text});
+    } else if (intent === 'feedback') {
+      const rating = /\b(good|great|helpful|love|excellent|perfect|thumbs up)\b/.test(text.toLowerCase()) ? 1 : -1;
+      data = await callTool('/webhook/tool-submit-feedback', {rating, comment: text});
+    } else if (intent === 'request_pto') {
+      const dates = extractDates(text);
+      if (dates) {
+        const reason = text.replace(/\d{4}-\d{2}-\d{2}/g,'').replace(/\b(request|pto|time off|vacation|leave|for|from|to|want|need|like|take|book)\b/gi,'').trim() || 'Personal time off';
+        data = await callTool('/webhook/tool-request-pto', {start_date: dates.start, end_date: dates.end, reason});
+      } else {
+        data = {message: 'I can submit a PTO request. Please include the start and end dates.\n\nExample: "Request PTO from 2026-12-10 to 2026-12-12 for the holidays"'};
+      }
+    } else if (intent === 'create_ticket') {
+      data = await callTool('/webhook/tool-create-ticket', {
+        category: inferCategory(text),
+        title: text.slice(0, 80),
+        description: text,
+        priority: 'normal'
+      });
+    } else {
       const res = await callTool('/webhook/tool-search-kb', {query: text});
       data = res;
-      source = res.source_type ? (res.source_type === 'sample' ? 'Sample policy' : res.source_type === 'website' ? 'Company website' : 'Uploaded document') : null;
+      source = res.source_type === 'sample'   ? 'Sample policy' :
+               res.source_type === 'website'  ? 'Company website' :
+               res.source_type === 'upload'   ? 'Uploaded document' : null;
     }
     thinking.remove();
     addBotMsg(formatToolResponse(intent, data), source);
+    pollMetrics();
   } catch(e) {
     thinking.remove();
-    addBotMsg('Could not reach backend. Make sure n8n is running at ' + API);
+    addBotMsg('Could not reach the backend. Check that n8n is running at ' + API);
   }
+  isBusy = false;
   sendBtn.disabled = false;
   inputEl.focus();
 }
 
-function handleSend() {
-  const text = inputEl.value.trim();
-  if (!text) return;
-  if (text.startsWith('/pto')) { sendMsg('What is my PTO balance?'); return; }
-  if (text.startsWith('/profile')) { sendMsg('Show my profile'); return; }
-  if (text.startsWith('/tickets')) { sendMsg('Show my open tickets'); return; }
-  if (text.startsWith('/request ')) {
-    const parts = text.slice(9).split(' ');
-    const start = parts[0], end = parts[1], reason = parts.slice(2).join(' ') || 'Personal time off';
-    if (start && end) {
-      addUserMsg(text);
-      inputEl.value = '';
-      sendBtn.disabled = true;
-      const t = addThinkingMsg();
-      callTool('/webhook/tool-request-pto', {start_date:start, end_date:end, reason}).then(d => {
-        t.remove();
-        addBotMsg(d.error ? d.error : (d.message || `PTO request submitted for ${start} to ${end}. Approval email sent.`));
-        sendBtn.disabled = false;
-      }).catch(e => { t.remove(); addBotMsg('Error: ' + e.message); sendBtn.disabled = false; });
-      return;
-    }
-  }
-  sendMsg(text);
-}
+function handleSend() { sendMsg(inputEl.value.trim()); }
 
-// ── Trace Panel ───────────────────────────────────────────────────────────────
+// ── Trace polling ─────────────────────────────────────────────────────────────
 const traceEl = document.getElementById('trace-list');
 let seenTraceIds = new Set();
 async function pollTrace() {
@@ -470,27 +603,17 @@ async function pollTrace() {
     const calls = (data.calls || data.rows || []).slice(0, 10);
     if (!calls.length) return;
     const firstLoad = seenTraceIds.size === 0;
-    let hasNew = false;
-    const newItems = [];
-    calls.forEach(c => {
-      if (!seenTraceIds.has(c.id)) {
-        seenTraceIds.add(c.id);
-        newItems.push(c);
-        hasNew = true;
-      }
+    const newItems = calls.filter(c => !seenTraceIds.has(c.id));
+    newItems.forEach(c => seenTraceIds.add(c.id));
+    if (!newItems.length) return;
+    if (firstLoad) traceEl.innerHTML = '';
+    newItems.reverse().forEach(c => {
+      const sc = c.status === 'success' ? 'status-success' : c.status === 'denied' ? 'status-denied' : 'status-error';
+      const div = document.createElement('div');
+      div.className = 'trace-item';
+      div.innerHTML = `<div class="trace-tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>${escHtml(c.tool_name)}</div><div class="trace-status ${sc}"><div class="trace-status-dot"></div>${c.status}<span class="trace-latency"> · ${c.latency_ms||'—'}ms</span></div>`;
+      traceEl.insertBefore(div, traceEl.firstChild);
     });
-    if (hasNew) {
-      if (firstLoad) traceEl.innerHTML = '';
-      newItems.reverse().forEach(c => {
-        const statusClass = c.status === 'success' ? 'status-success' : c.status === 'denied' ? 'status-denied' : 'status-error';
-        const div = document.createElement('div');
-        div.className = 'trace-item';
-        div.innerHTML = `
-          <div class="trace-tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>${escHtml(c.tool_name)}</div>
-          <div class="trace-status ${statusClass}"><div class="trace-status-dot"></div>${c.status} <span class="trace-latency">· ${c.latency_ms || '—'}ms</span></div>`;
-        traceEl.insertBefore(div, traceEl.firstChild);
-      });
-    }
   } catch(e) {}
 }
 setInterval(pollTrace, 3000);
@@ -503,15 +626,17 @@ async function pollMetrics() {
     if (!res.ok) return;
     const d = await res.json();
     const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
-    const csat = d.avg_rating ? (((d.avg_rating + 1) / 2) * 4 + 1).toFixed(1) + '/5' : '—';
+    const totalFb = (d.thumbs_up||0)+(d.thumbs_down||0);
+    const csat = totalFb > 0 ? (((d.thumbs_up||0)/totalFb)*4+1).toFixed(1)+'/5' : '—';
+    const acc = (d.success_count||0)+(d.error_count||0) > 0 ? Math.round(100*(d.success_count||0)/((d.success_count||0)+(d.error_count||0)))+'%' : '—';
     set('m-csat', csat);
-    set('m-acc', d.success_rate ? Math.round(d.success_rate) + '%' : '—');
-    set('m-tasks', d.action_count || '—');
-    set('m-tools', d.total_tool_calls || '—');
-    set('m-chunks', d.chunk_count || '—');
+    set('m-acc', acc);
+    set('m-tasks', d.action_count ?? '—');
+    set('m-tools', d.total_tool_calls ?? '—');
+    set('m-chunks', d.chunk_count ?? '—');
   } catch(e) {}
 }
-setInterval(pollMetrics, 30000);
+setInterval(pollMetrics, 20000);
 pollMetrics();
 </script>
 </body>
