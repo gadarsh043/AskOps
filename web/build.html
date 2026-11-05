@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AskOps · Building Workspace</title>
+<script src="config.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
+  header{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 2rem;height:60px;display:flex;align-items:center;gap:.75rem}
+  .logo{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .logo-sub{color:#64748b;font-size:.85rem}
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
+  .card{background:#fff;border-radius:1rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:2.5rem;width:100%;max-width:580px}
+  .step-label{font-size:.8rem;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
+  h1{font-size:1.6rem;font-weight:700;color:#0f172a;margin-bottom:.4rem}
+  .sub{color:#64748b;font-size:.95rem;margin-bottom:2rem}
+  .company-name{font-size:1.1rem;font-weight:700;color:#0f172a;margin-bottom:1.5rem;padding:.5rem .75rem;background:#f8fafc;border-radius:.5rem;border-left:3px solid #6366f1}
+  .events-list{margin-bottom:1.5rem;min-height:180px}
+  .event-row{display:flex;align-items:flex-start;gap:.75rem;padding:.5rem 0;border-bottom:1px solid #f1f5f9;animation:fadeIn .3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .event-icon{width:1.5rem;height:1.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;margin-top:.1rem}
+  .icon-done{background:#dcfce7}
+  .icon-spin{background:#dbeafe}
+  .icon-wait{background:#f1f5f9}
+  .event-text{font-size:.9rem;color:#374151;flex:1;line-height:1.4}
+  .event-meta{font-size:.75rem;color:#94a3b8;margin-top:.1rem}
+  .progress-wrap{margin-bottom:1.5rem}
+  .progress-label{display:flex;justify-content:space-between;font-size:.82rem;color:#64748b;margin-bottom:.4rem}
+  .progress-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:4px;transition:width .4s ease;width:0%}
+  .btn-primary{width:100%;padding:.9rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;display:none}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.35)}
+  .spin{display:inline-block;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .steps-bar{display:flex;gap:.5rem;margin-bottom:2rem}
+  .step-dot{flex:1;height:4px;border-radius:2px;background:#e2e8f0}
+  .step-dot.done{background:#10b981}
+  .step-dot.active{background:linear-gradient(90deg,#6366f1,#8b5cf6)}
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:1.3rem">⚡</span>
+  <span class="logo">AskOps</span>
+  <span class="logo-sub">AI-Powered IT & HR Service Desk</span>
+</header>
+<main>
+  <div class="card">
+    <div class="steps-bar">
+      <div class="step-dot done"></div>
+      <div class="step-dot done"></div>
+      <div class="step-dot active"></div>
+    </div>
+    <div class="step-label">Step 3 of 3</div>
+    <h1>Building Your Workspace</h1>
+    <p class="sub">We're scraping your website, chunking content, generating embeddings, and creating your AI knowledge base.</p>
+
+    <div class="company-name" id="company-name">🏢 Northwind Labs</div>
+
+    <div class="events-list" id="events-list"></div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span id="progress-label">Initializing…</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <button class="btn-primary" id="go-btn" onclick="window.location.href='workspace.html'">
+      Go to Workspace →
+    </button>
+  </div>
+</main>
+<script>
+const DEMO_STEPS = [
+  {icon:'✅', text:'Workspace created', meta:'ID: 00000000-0001', pct:8, done:true},
+  {icon:'✅', text:'Connecting to northwind.example.com', meta:'Jina Reader ready', pct:15, done:true},
+  {icon:'✅', text:'Sitemap discovered — 24 URLs found', meta:'Scoring by relevance keywords', pct:22, done:true},
+  {icon:'✅', text:'Fetched 15 pages (homepage, about, careers, benefits, FAQ…)', meta:'~42 KB of content', pct:35, done:true},
+  {icon:'✅', text:'Company detected: Northwind Labs · Software · Remote-first', meta:'Via Groq extraction', pct:42, done:true},
+  {icon:'✅', text:'Chunked 15 pages → 68 chunks (avg 420 tokens)', meta:'~100 token overlap, heading-aware', pct:52, done:true},
+  {icon:'✅', text:'Generated embeddings (68 × 768 dims)', meta:'Gemini text-embedding-004', pct:68, done:true},
+  {icon:'✅', text:'Stored 68 chunks in knowledge base', meta:'pgvector · HNSW index', pct:78, done:true},
+  {icon:'✅', text:'Generated 5 sample policies (PTO, IT Security, Remote Work, Expenses, Onboarding)', meta:'Groq Llama · Northwind Labs branding', pct:88, done:true},
+  {icon:'✅', text:'Sample policies chunked → 22 chunks stored', meta:'source_type=sample', pct:95, done:true},
+  {icon:'✅', text:'Knowledge base ready — 90 total chunks', meta:'Semantic cache warmed', pct:100, done:true},
+];
+
+const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_WORKSPACE_ID;
+const isDemo = localStorage.getItem('askops_demo_mode') === 'true';
+
+const list = document.getElementById('events-list');
+const fill = document.getElementById('progress-fill');
+const pctEl = document.getElementById('progress-pct');
+const labelEl = document.getElementById('progress-label');
+const goBtn = document.getElementById('go-btn');
+
+function addEvent(step) {
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  const iconClass = step.done ? 'icon-done' : (step.pct > 0 ? 'icon-spin' : 'icon-wait');
+  row.innerHTML = `
+    <div class="event-icon ${iconClass}">${step.icon}</div>
+    <div>
+      <div class="event-text">${step.text}</div>
+      <div class="event-meta">${step.meta || ''}</div>
+    </div>`;
+  list.appendChild(row);
+  row.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function setProgress(pct, label) {
+  fill.style.width = pct + '%';
+  pctEl.textContent = pct + '%';
+  if (label) labelEl.textContent = label;
+}
+
+async function runDemo() {
+  for (let i = 0; i < DEMO_STEPS.length; i++) {
+    await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
+    addEvent(DEMO_STEPS[i]);
+    setProgress(DEMO_STEPS[i].pct, DEMO_STEPS[i].text);
+  }
+  labelEl.textContent = 'Complete!';
+  goBtn.style.display = 'block';
+}
+
+async function pollBuild() {
+  let done = false;
+  let tries = 0;
+  while (!done && tries < 120) {
+    await new Promise(r => setTimeout(r, 2000));
+    tries++;
+    try {
+      const res = await fetch(`${window.ASKOPS_API}/webhook/api-build-status?workspace_id=${workspaceId}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      list.innerHTML = '';
+      let maxPct = 0;
+      (data.events || []).forEach(ev => {
+        addEvent({icon: ev.level === 'done' ? '✅' : ev.level === 'error' ? '❌' : '⟳', text: ev.message, meta: ev.detail || '', done: ev.level === 'done', pct: ev.pct || 0});
+        maxPct = Math.max(maxPct, ev.pct || 0);
+      });
+      setProgress(maxPct, data.status || 'Building…');
+      if (data.status === 'ready') { done = true; goBtn.style.display = 'block'; }
+    } catch(e) { /* retry */ }
+  }
+  if (!done) { labelEl.textContent = 'Check n8n for status'; goBtn.style.display = 'block'; }
+}
+
+if (isDemo) {
+  runDemo();
+} else {
+  addEvent({icon:'⟳', text:'Starting ingestion…', meta:'', pct:0, done:false});
+  pollBuild();
+}
+</script>
+</body>
+</html>

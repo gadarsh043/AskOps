@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AskOps · AI-Powered IT & HR Service Desk</title>
+<script src="config.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .logo{font-size:3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .sub{color:#94a3b8;margin-top:.5rem;font-size:1.1rem;text-align:center}
+  .btn{margin-top:2rem;padding:1rem 2.5rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none;display:inline-block}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(99,102,241,.4)}
+  .badges{display:flex;gap:1rem;margin-top:3rem;flex-wrap:wrap;justify-content:center}
+  .badge{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:2rem;padding:.4rem 1rem;font-size:.8rem;color:#94a3b8}
+  .spark{font-size:1.4rem;margin-right:.4rem}
+</style>
+</head>
+<body>
+<div style="text-align:center;max-width:600px;padding:2rem">
+  <div style="font-size:4rem;margin-bottom:1rem">⚡</div>
+  <div class="logo">AskOps</div>
+  <div class="sub">AI-Powered IT &amp; HR Service Desk<br>Built for any company in minutes</div>
+  <a href="setup.html" class="btn">Get Started →</a>
+  <div class="badges">
+    <span class="badge">🤖 AI-powered answers</span>
+    <span class="badge">📋 PTO management</span>
+    <span class="badge">🎫 Ticket creation</span>
+    <span class="badge">📊 Live metrics</span>
+    <span class="badge">🔒 Role-based access</span>
+  </div>
+</div>
+<script>
+  // Auto-redirect returning users
+  const wid = localStorage.getItem('askops_workspace_id');
+  const persona = localStorage.getItem('askops_persona');
+  if (wid && persona) {
+    // Already set up — go straight to workspace
+    setTimeout(() => { window.location.href = 'workspace.html'; }, 1500);
+  }
+</script>
+</body>
+</html>

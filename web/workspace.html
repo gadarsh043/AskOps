@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AskOps · Workspace</title>
+<script src="config.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f8fafc;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  /* ── Header ── */
+  header{background:#1e293b;border-bottom:1px solid #334155;padding:0 1.25rem;height:52px;display:flex;align-items:center;gap:.75rem;flex-shrink:0}
+  .logo{font-size:1.1rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .header-right{margin-left:auto;display:flex;align-items:center;gap.75rem}
+  .persona-pill{display:flex;align-items:center;gap:.5rem;padding:.3rem .75rem;background:#0f172a;border:1px solid #334155;border-radius:2rem;font-size:.82rem;cursor:pointer;transition:all .2s;user-select:none}
+  .persona-pill:hover{border-color:#6366f1}
+  .role-badge{padding:.15rem .5rem;border-radius:1rem;font-size:.7rem;font-weight:600;text-transform:uppercase}
+  .role-employee{background:#1e3a5f;color:#60a5fa}
+  .role-hr{background:#4a1d3f;color:#f472b6}
+  .header-link{color:#94a3b8;font-size:.82rem;text-decoration:none;padding:.3rem .6rem;border-radius:.4rem;transition:color .15s}
+  .header-link:hover{color:#f8fafc}
+  /* ── Layout ── */
+  .workspace{flex:1;display:flex;overflow:hidden}
+  /* ── Sidebar ── */
+  aside{width:200px;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+  .sidebar-section{padding:.75rem 1rem;border-bottom:1px solid #334155}
+  .sidebar-label{font-size:.7rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
+  .persona-btn{width:100%;padding:.5rem .75rem;border-radius:.5rem;border:none;cursor:pointer;font-size:.82rem;font-weight:500;text-align:left;transition:all .15s;display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem}
+  .persona-btn.active{background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(139,92,246,.25));color:#a5b4fc;border:1px solid rgba(99,102,241,.3)}
+  .persona-btn:not(.active){background:transparent;color:#94a3b8;border:1px solid transparent}
+  .persona-btn:not(.active):hover{background:#0f172a;color:#f8fafc}
+  .metric-row{display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;font-size:.82rem}
+  .metric-name{color:#94a3b8}
+  .metric-val{color:#f8fafc;font-weight:600;font-variant-numeric:tabular-nums}
+  .metric-val.green{color:#34d399}
+  .metric-val.blue{color:#60a5fa}
+  .metric-val.purple{color:#a78bfa}
+  .sidebar-footer{margin-top:auto;padding:.75rem 1rem}
+  /* ── Chat panel ── */
+  .chat-panel{flex:1;display:flex;flex-direction:column;min-width:0}
+  .chat-tabs{display:flex;border-bottom:1px solid #334155;background:#1e293b;flex-shrink:0}
+  .chat-tab{padding:.6rem 1.25rem;font-size:.85rem;font-weight:500;cursor:pointer;color:#94a3b8;border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+  .chat-tab.active{color:#a5b4fc;border-bottom-color:#6366f1}
+  .chat-tab:hover:not(.active){color:#f8fafc}
+  .chat-content{flex:1;overflow:hidden;position:relative}
+  .tab-pane{position:absolute;inset:0;display:none;flex-direction:column}
+  .tab-pane.active{display:flex}
+  /* ── Demo Chat ── */
+  .messages{flex:1;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:.75rem}
+  .msg{max-width:80%;animation:msgIn .2s ease}
+  @keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .msg.user{align-self:flex-end}
+  .msg.bot{align-self:flex-start}
+  .bubble{padding:.75rem 1rem;border-radius:.875rem;font-size:.88rem;line-height:1.5;white-space:pre-wrap}
+  .msg.user .bubble{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-bottom-right-radius:.25rem}
+  .msg.bot .bubble{background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-bottom-left-radius:.25rem}
+  .msg.bot .bubble.thinking{color:#94a3b8;font-style:italic}
+  .source-tag{display:inline-block;margin-top:.4rem;font-size:.72rem;padding:.15rem .5rem;background:#0f172a;border:1px solid #334155;border-radius:1rem;color:#64748b}
+  .suggestions{display:flex;flex-wrap:wrap;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid #334155;background:#1a2234;flex-shrink:0}
+  .sug{padding:.35rem .75rem;background:#0f172a;border:1px solid #334155;border-radius:1.5rem;font-size:.78rem;color:#94a3b8;cursor:pointer;transition:all .15s}
+  .sug:hover{border-color:#6366f1;color:#a5b4fc}
+  .chat-input-row{display:flex;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid #334155;background:#1a2234;flex-shrink:0}
+  .chat-input{flex:1;padding:.6rem .9rem;background:#0f172a;border:1.5px solid #334155;border-radius:.6rem;color:#f8fafc;font-size:.9rem;outline:none;transition:border .15s}
+  .chat-input:focus{border-color:#6366f1}
+  .send-btn{padding:.6rem 1.1rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.6rem;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .send-btn:hover{transform:translateY(-1px)}
+  .send-btn:disabled{opacity:.5;cursor:not-allowed}
+  /* ── Copilot tab ── */
+  .copilot-pane{padding:2rem;overflow-y:auto;display:flex;flex-direction:column;align-items:center}
+  .copilot-iframe-wrap{width:100%;max-width:500px;height:500px;background:#1e293b;border:2px dashed #334155;border-radius:.75rem;display:flex;align-items:center;justify-content:center;margin-bottom:1.5rem}
+  .copilot-iframe-wrap iframe{width:100%;height:100%;border:none;border-radius:.75rem}
+  .copilot-setup{background:#1e293b;border:1px solid #334155;border-radius:.75rem;padding:1.5rem;max-width:500px;width:100%}
+  .copilot-setup h3{color:#a5b4fc;font-size:1rem;margin-bottom:.75rem}
+  .step-item{display:flex;gap:.6rem;margin-bottom:.6rem;font-size:.85rem;color:#94a3b8;line-height:1.4}
+  .step-num{background:#0f172a;border:1px solid #334155;border-radius:50%;width:1.3rem;height:1.3rem;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#a5b4fc;flex-shrink:0;margin-top:.1rem}
+  .copilot-url-row{display:flex;gap:.5rem;margin-top:1rem}
+  .copilot-url-input{flex:1;padding:.5rem .75rem;background:#0f172a;border:1px solid #334155;border-radius:.5rem;color:#f8fafc;font-size:.82rem;outline:none}
+  .copilot-url-input:focus{border-color:#6366f1}
+  .copilot-save-btn{padding:.5rem 1rem;background:#6366f1;border:none;border-radius:.5rem;color:#fff;font-size:.82rem;cursor:pointer}
+  /* ── Trace panel ── */
+  .trace-panel{width:260px;background:#1e293b;border-left:1px solid #334155;display:flex;flex-direction:column;flex-shrink:0}
+  .trace-header{padding:.75rem 1rem;border-bottom:1px solid #334155;font-size:.82rem;font-weight:600;color:#a5b4fc;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .live-dot{width:6px;height:6px;background:#34d399;border-radius:50%;animation:pulse 1.5s ease infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .trace-list{flex:1;overflow-y:auto;padding:.5rem}
+  .trace-item{padding:.6rem .75rem;border-radius:.5rem;margin-bottom:.35rem;border:1px solid #334155;background:#0f172a;animation:fadeIn .3s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .trace-tool{font-size:.8rem;font-weight:600;color:#e2e8f0;display:flex;align-items:center;gap:.35rem}
+  .trace-status{font-size:.72rem;margin-top:.2rem;display:flex;align-items:center;gap:.35rem}
+  .status-success{color:#34d399}
+  .status-denied{color:#f472b6}
+  .status-error{color:#fb7185}
+  .trace-latency{color:#94a3b8;font-size:.7rem}
+  .trace-empty{color:#475569;font-size:.82rem;text-align:center;padding:2rem 1rem;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:1.1rem">⚡</span>
+  <span class="logo">AskOps</span>
+  <span style="color:#334155;margin:0 .25rem">|</span>
+  <span style="color:#64748b;font-size:.82rem" id="header-company">Northwind Labs</span>
+  <div class="header-right" style="margin-left:auto;display:flex;align-items:center;gap:.75rem">
+    <a href="dashboard.html" class="header-link">📊 Dashboard</a>
+    <a href="setup.html" class="header-link" onclick="localStorage.clear()">↩ Reset</a>
+    <div class="persona-pill" onclick="togglePersonaDropdown()" id="persona-pill">
+      <span id="persona-emoji">👨‍💻</span>
+      <span id="persona-name-label">Adarsh Gella</span>
+      <span class="role-badge role-employee" id="role-badge">Employee</span>
+      <span style="color:#475569">▾</span>
+    </div>
+  </div>
+</header>
+
+<div class="workspace">
+  <!-- Sidebar -->
+  <aside>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Switch Persona</div>
+      <button class="persona-btn" id="btn-adarsh" onclick="switchPersona('EMP-042','adarsh')">
+        👨‍💻 Adarsh (EE)
+      </button>
+      <button class="persona-btn" id="btn-john" onclick="switchPersona('EMP-007','john')">
+        👔 John Lee (HR)
+      </button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Live Metrics</div>
+      <div class="metric-row"><span class="metric-name">CSAT</span><span class="metric-val green" id="m-csat">—</span></div>
+      <div class="metric-row"><span class="metric-name">Accuracy</span><span class="metric-val blue" id="m-acc">—</span></div>
+      <div class="metric-row"><span class="metric-name">Tasks Auto</span><span class="metric-val purple" id="m-tasks">—</span></div>
+      <div class="metric-row"><span class="metric-name">Tool Calls</span><span class="metric-val" id="m-tools">—</span></div>
+      <div class="metric-row"><span class="metric-name">KB Chunks</span><span class="metric-val" id="m-chunks">—</span></div>
+    </div>
+    <div class="sidebar-section" style="flex:1">
+      <div class="sidebar-label">Quick Actions</div>
+      <div style="display:flex;flex-direction:column;gap:.35rem">
+        <button class="persona-btn" onclick="sendMsg('What is my PTO balance?')">🏖️ PTO Balance</button>
+        <button class="persona-btn" onclick="sendMsg('Show my open tickets')">🎫 My Tickets</button>
+        <button class="persona-btn" onclick="sendMsg('What is our remote work policy?')">🌐 Remote Policy</button>
+        <button class="persona-btn" onclick="sendMsg('What are our expense guidelines?')">💳 Expenses</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div style="font-size:.72rem;color:#475569;line-height:1.5">
+        🔒 Access enforced by DB<br>Denials logged for audit
+      </div>
+    </div>
+  </aside>
+
+  <!-- Chat Panel -->
+  <div class="chat-panel">
+    <div class="chat-tabs">
+      <div class="chat-tab active" onclick="switchTab('demo')" id="tab-demo">🤖 Demo Chat</div>
+      <div class="chat-tab" onclick="switchTab('copilot')" id="tab-copilot">🔗 Copilot Studio</div>
+    </div>
+    <div class="chat-content">
+      <!-- Demo Chat -->
+      <div class="tab-pane active" id="pane-demo">
+        <div class="messages" id="messages">
+          <div class="msg bot">
+            <div class="bubble">👋 Hi! I'm your AskOps assistant. I can answer HR and IT questions, help you request PTO, check ticket status, and more.
+
+Try asking me something, or use the quick actions in the sidebar.</div>
+          </div>
+        </div>
+        <div class="suggestions" id="suggestions">
+          <span class="sug" onclick="sendMsg(this.textContent)">What's our PTO policy?</span>
+          <span class="sug" onclick="sendMsg(this.textContent)">I need to request time off</span>
+          <span class="sug" onclick="sendMsg(this.textContent)">Show my ticket status</span>
+          <span class="sug" onclick="sendMsg(this.textContent)">What are our remote work guidelines?</span>
+        </div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chat-input" placeholder="Ask anything about HR, IT, PTO…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleSend()}">
+          <button class="send-btn" id="send-btn" onclick="handleSend()">Send ↑</button>
+        </div>
+      </div>
+
+      <!-- Copilot Studio -->
+      <div class="tab-pane" id="pane-copilot" style="overflow-y:auto;padding:1.5rem;align-items:center">
+        <div id="copilot-iframe-container" style="width:100%;max-width:520px;height:520px;display:none;margin-bottom:1rem">
+          <iframe id="copilot-iframe" src="" allow="microphone" style="width:100%;height:100%;border:none;border-radius:.75rem"></iframe>
+        </div>
+        <div class="copilot-setup" id="copilot-setup-card">
+          <h3>Connect Copilot Studio</h3>
+          <div class="step-item"><div class="step-num">1</div><div>Start a free Copilot Studio trial at <strong>copilotstudio.microsoft.com</strong></div></div>
+          <div class="step-item"><div class="step-num">2</div><div>Create a new agent → "AskOps IT &amp; HR Agent"</div></div>
+          <div class="step-item"><div class="step-num">3</div><div>Add an HTTP Action pointing to your n8n webhook URL</div></div>
+          <div class="step-item"><div class="step-num">4</div><div>Publish the agent → Go to <strong>Demo Website</strong> channel</div></div>
+          <div class="step-item"><div class="step-num">5</div><div>Copy the embed URL and paste it below</div></div>
+          <div class="copilot-url-row">
+            <input class="copilot-url-input" id="copilot-embed-url" placeholder="https://webchat.botframework.com/embed/..." onkeydown="if(event.key==='Enter')saveCopilotUrl()">
+            <button class="copilot-save-btn" onclick="saveCopilotUrl()">Load</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trace Panel -->
+  <div class="trace-panel">
+    <div class="trace-header">
+      🔍 Behind the Scenes
+      <div class="live-dot" title="Live polling"></div>
+    </div>
+    <div class="trace-list" id="trace-list">
+      <div class="trace-empty">Tool calls will appear here as you chat. Each entry shows the tool name, status, and latency.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.ASKOPS_API;
+const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_WORKSPACE_ID;
+
+// ── Persona state ─────────────────────────────────────────────────────────────
+let currentPersona = localStorage.getItem('askops_persona') || 'EMP-042';
+function applyPersonaUI() {
+  const isHR = currentPersona === 'EMP-007';
+  document.getElementById('persona-emoji').textContent = isHR ? '👔' : '👨‍💻';
+  document.getElementById('persona-name-label').textContent = isHR ? 'John Lee' : 'Adarsh Gella';
+  const badge = document.getElementById('role-badge');
+  badge.textContent = isHR ? 'HR' : 'Employee';
+  badge.className = 'role-badge ' + (isHR ? 'role-hr' : 'role-employee');
+  document.getElementById('btn-adarsh').className = 'persona-btn' + (currentPersona==='EMP-042'?' active':'');
+  document.getElementById('btn-john').className   = 'persona-btn' + (currentPersona==='EMP-007'?' active':'');
+}
+async function switchPersona(code, key) {
+  currentPersona = code;
+  localStorage.setItem('askops_persona', code);
+  applyPersonaUI();
+  addBotMsg(`🔄 Switched to ${key === 'adarsh' ? 'Adarsh Gella (Employee)' : 'John Lee (HR Manager)'}. Your permissions have changed.`);
+  try {
+    await fetch(API + '/webhook/api-set-persona', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({workspace_id:workspaceId, employee_code:code})});
+  } catch(e) {}
+}
+applyPersonaUI();
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['demo','copilot'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('pane-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+// ── Copilot Studio ───────────────────────────────────────────────────────────
+const savedCopilotUrl = localStorage.getItem('askops_copilot_url');
+if (savedCopilotUrl) {
+  document.getElementById('copilot-embed-url').value = savedCopilotUrl;
+  loadCopilotIframe(savedCopilotUrl);
+}
+function saveCopilotUrl() {
+  const url = document.getElementById('copilot-embed-url').value.trim();
+  if (!url) return;
+  localStorage.setItem('askops_copilot_url', url);
+  loadCopilotIframe(url);
+}
+function loadCopilotIframe(url) {
+  document.getElementById('copilot-iframe').src = url;
+  document.getElementById('copilot-iframe-container').style.display = 'block';
+  document.getElementById('copilot-setup-card').style.marginTop = '1rem';
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+const messagesEl = document.getElementById('messages');
+const inputEl = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
+
+function addBotMsg(text, sourceTag) {
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `<div class="bubble">${escHtml(text)}${sourceTag ? `<br><span class="source-tag">📚 ${escHtml(sourceTag)}</span>` : ''}</div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+function addUserMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="bubble">${escHtml(text)}</div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function addThinkingMsg() {
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `<div class="bubble thinking">⟳ Thinking…</div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function detectIntent(text) {
+  const t = text.toLowerCase();
+  if (/\b(pto balance|days (off|remaining)|vacation balance|time off balance)\b/.test(t)) return 'pto_balance';
+  if (/\b(request (pto|time off|vacation|leave)|book time off|take (a day|leave|time off))\b/.test(t)) return 'request_pto';
+  if (/\b(my (tickets?|requests?|issues?)|ticket status|open tickets?)\b/.test(t)) return 'tickets';
+  if (/\b(my profile|who am i|my info|my details)\b/.test(t)) return 'profile';
+  if (/\b(escalate|urgent|human agent|talk to (a )?human)\b/.test(t)) return 'escalate';
+  if (/\b(rate|feedback|thumbs|satisfied)\b/.test(t)) return 'feedback';
+  return 'search';
+}
+
+async function callTool(path, body) {
+  const res = await fetch(API + path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function formatToolResponse(intent, data) {
+  if (data.error) return '❌ ' + data.error;
+  if (intent === 'pto_balance') {
+    if (data.balance_days != null) return `You have **${data.balance_days} PTO days** remaining (${data.accrued_ytd || 0} accrued this year, ${data.used_ytd || 0} used).`;
+    return JSON.stringify(data, null, 2);
+  }
+  if (intent === 'profile') {
+    return `**${data.full_name}** · ${data.title}\nDepartment: ${data.department}\nEmployee Code: ${data.employee_code}\nManager: ${data.manager_name || 'N/A'}\nHire Date: ${data.hire_date || 'N/A'}`;
+  }
+  if (intent === 'tickets') {
+    const rows = data.tickets || data.rows || [];
+    if (!rows.length) return 'No tickets found.';
+    return rows.map(t => `🎫 [${t.ticket_code || t.id}] **${t.title}** · ${t.status} · ${t.priority}`).join('\n');
+  }
+  if (intent === 'search') {
+    return data.answer || data.text || JSON.stringify(data);
+  }
+  return JSON.stringify(data, null, 2);
+}
+
+async function sendMsg(text) {
+  if (!text || !text.trim()) return;
+  inputEl.value = '';
+  addUserMsg(text);
+  sendBtn.disabled = true;
+  const thinking = addThinkingMsg();
+  try {
+    const intent = detectIntent(text);
+    let data, source;
+    if (intent === 'pto_balance') { data = await callTool('/webhook/tool-get-pto-balance', {}); }
+    else if (intent === 'profile') { data = await callTool('/webhook/tool-get-my-profile', {}); }
+    else if (intent === 'tickets') { data = await callTool('/webhook/tool-get-ticket-status', {}); }
+    else if (intent === 'escalate') { data = await callTool('/webhook/tool-escalate-to-human', {summary: text}); }
+    else if (intent === 'request_pto') {
+      data = {answer: "I can help you request PTO! Please use: /request YYYY-MM-DD YYYY-MM-DD reason\nExample: /request 2026-12-24 2026-12-26 Holiday vacation"};
+      source = null;
+    }
+    else {
+      const res = await callTool('/webhook/tool-search-kb', {query: text});
+      data = res;
+      source = res.source_type ? (res.source_type === 'sample' ? 'Sample Policy' : res.source_type === 'website' ? 'Company Website' : 'Uploaded Document') : null;
+    }
+    thinking.remove();
+    addBotMsg(formatToolResponse(intent, data), source);
+  } catch(e) {
+    thinking.remove();
+    addBotMsg('⚠️ Could not reach backend. Make sure n8n is running at ' + API);
+  }
+  sendBtn.disabled = false;
+  inputEl.focus();
+}
+
+function handleSend() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+  if (text.startsWith('/pto')) { sendMsg('What is my PTO balance?'); return; }
+  if (text.startsWith('/profile')) { sendMsg('Show my profile'); return; }
+  if (text.startsWith('/tickets')) { sendMsg('Show my open tickets'); return; }
+  if (text.startsWith('/request ')) {
+    const parts = text.slice(9).split(' ');
+    const start = parts[0], end = parts[1], reason = parts.slice(2).join(' ') || 'Personal time off';
+    if (start && end) {
+      addUserMsg(text);
+      inputEl.value = '';
+      sendBtn.disabled = true;
+      const t = addThinkingMsg();
+      callTool('/webhook/tool-request-pto', {start_date:start, end_date:end, reason}).then(d => {
+        t.remove();
+        addBotMsg(d.error ? '❌ ' + d.error : '✅ ' + (d.message || `PTO request submitted for ${start} → ${end}. Approval email sent.`));
+        sendBtn.disabled = false;
+      }).catch(e => { t.remove(); addBotMsg('⚠️ Error: ' + e.message); sendBtn.disabled = false; });
+      return;
+    }
+  }
+  sendMsg(text);
+}
+
+// ── Trace Panel ───────────────────────────────────────────────────────────────
+const traceEl = document.getElementById('trace-list');
+let seenTraceIds = new Set();
+async function pollTrace() {
+  try {
+    const res = await fetch(`${API}/webhook/api-tool-trace?workspace_id=${workspaceId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const calls = (data.calls || data.rows || []).slice(0, 10);
+    if (!calls.length) return;
+    const firstLoad = seenTraceIds.size === 0;
+    let hasNew = false;
+    const newItems = [];
+    calls.forEach(c => {
+      if (!seenTraceIds.has(c.id)) {
+        seenTraceIds.add(c.id);
+        newItems.push(c);
+        hasNew = true;
+      }
+    });
+    if (hasNew) {
+      if (firstLoad) traceEl.innerHTML = '';
+      newItems.reverse().forEach(c => {
+        const statusClass = c.status === 'success' ? 'status-success' : c.status === 'denied' ? 'status-denied' : 'status-error';
+        const statusIcon = c.status === 'success' ? '✅' : c.status === 'denied' ? '🚫' : '❌';
+        const div = document.createElement('div');
+        div.className = 'trace-item';
+        div.innerHTML = `
+          <div class="trace-tool">🔧 ${escHtml(c.tool_name)}</div>
+          <div class="trace-status ${statusClass}">${statusIcon} ${c.status} <span class="trace-latency">· ${c.latency_ms || '—'}ms</span></div>`;
+        traceEl.insertBefore(div, traceEl.firstChild);
+      });
+    }
+  } catch(e) {}
+}
+setInterval(pollTrace, 3000);
+pollTrace();
+
+// ── Metrics ───────────────────────────────────────────────────────────────────
+async function pollMetrics() {
+  try {
+    const res = await fetch(`${API}/webhook/api-metrics?workspace_id=${workspaceId}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+    const csat = d.avg_rating ? (((d.avg_rating + 1) / 2) * 4 + 1).toFixed(1) + '/5' : '—';
+    set('m-csat', csat);
+    set('m-acc', d.success_rate ? Math.round(d.success_rate) + '%' : '—');
+    set('m-tasks', d.action_count || '—');
+    set('m-tools', d.total_tool_calls || '—');
+    set('m-chunks', d.chunk_count || '—');
+  } catch(e) {}
+}
+setInterval(pollMetrics, 30000);
+pollMetrics();
+</script>
+</body>
+</html>

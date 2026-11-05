@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AskOps · Choose Persona</title>
+<script src="config.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
+  header{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 2rem;height:60px;display:flex;align-items:center;gap:.75rem}
+  .logo{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .logo-sub{color:#64748b;font-size:.85rem}
+  main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:3rem 1rem}
+  .card{background:#fff;border-radius:1rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:2.5rem;width:100%;max-width:680px}
+  .step-label{font-size:.8rem;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
+  h1{font-size:1.6rem;font-weight:700;color:#0f172a;margin-bottom:.4rem}
+  .sub{color:#64748b;font-size:.95rem;margin-bottom:2rem}
+  .personas{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2rem}
+  .persona-card{border:2px solid #e2e8f0;border-radius:.875rem;padding:1.5rem;cursor:pointer;transition:all .2s;background:#fff;text-align:center;position:relative}
+  .persona-card:hover{border-color:#6366f1;background:#fafbff}
+  .persona-card.selected{border-color:#6366f1;background:linear-gradient(135deg,#eef2ff,#f5f3ff);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+  .persona-emoji{font-size:3rem;margin-bottom:.75rem;display:block}
+  .persona-name{font-size:1.05rem;font-weight:700;color:#0f172a;margin-bottom:.2rem}
+  .persona-title{font-size:.85rem;color:#64748b;margin-bottom:.6rem}
+  .persona-role{display:inline-block;padding:.25rem .75rem;border-radius:1rem;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .role-employee{background:#dbeafe;color:#1d4ed8}
+  .role-hr{background:#fce7f3;color:#be185d}
+  .check{position:absolute;top:.75rem;right:.75rem;width:1.5rem;height:1.5rem;background:#6366f1;border-radius:50%;display:none;align-items:center;justify-content:center;color:#fff;font-size:.8rem}
+  .persona-card.selected .check{display:flex}
+  .field{margin-bottom:1.5rem}
+  label{display:block;font-size:.85rem;font-weight:600;color:#374151;margin-bottom:.4rem}
+  input[type=email],input[type=text]{width:100%;padding:.7rem 1rem;border:1.5px solid #e2e8f0;border-radius:.5rem;font-size:.95rem;outline:none;transition:border .2s;background:#fff;color:#0f172a}
+  input[type=email]:focus,input[type=text]:focus{border-color:#6366f1}
+  .field-hint{font-size:.78rem;color:#94a3b8;margin-top:.35rem}
+  .btn-primary{width:100%;padding:.9rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s}
+  .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.35)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+  .back-link{color:#64748b;font-size:.85rem;cursor:pointer;border:none;background:none;margin-bottom:1.5rem;display:inline-flex;align-items:center;gap:.25rem}
+  .back-link:hover{color:#4f46e5}
+  .steps-bar{display:flex;gap:.5rem;margin-bottom:2rem}
+  .step-dot{flex:1;height:4px;border-radius:2px;background:#e2e8f0}
+  .step-dot.done{background:#10b981}
+  .step-dot.active{background:linear-gradient(90deg,#6366f1,#8b5cf6)}
+  .err{color:#ef4444;font-size:.82rem;margin-top:.4rem;display:none}
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:1.3rem">⚡</span>
+  <span class="logo">AskOps</span>
+  <span class="logo-sub">AI-Powered IT & HR Service Desk</span>
+</header>
+<main>
+  <div class="card">
+    <div class="steps-bar">
+      <div class="step-dot done"></div>
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+    </div>
+    <button class="back-link" onclick="history.back()">← Back</button>
+    <div class="step-label">Step 2 of 3</div>
+    <h1>Choose Your Persona</h1>
+    <p class="sub">Select who you are for this demo session. Permissions and tool access change based on your role.</p>
+
+    <div class="personas">
+      <div class="persona-card" id="card-adarsh" onclick="selectPersona('EMP-042','adarsh')">
+        <div class="check">✓</div>
+        <span class="persona-emoji">👨‍💻</span>
+        <div class="persona-name">Adarsh Gella</div>
+        <div class="persona-title">Software Engineer</div>
+        <span class="persona-role role-employee">Employee</span>
+        <div style="margin-top:.75rem;font-size:.78rem;color:#94a3b8;text-align:left;line-height:1.5">
+          ✓ Ask HR/IT questions<br>
+          ✓ Check PTO balance<br>
+          ✓ Request time off<br>
+          ✓ Create support tickets<br>
+          ✗ View salaries<br>
+          ✗ Approve PTO
+        </div>
+      </div>
+      <div class="persona-card" id="card-john" onclick="selectPersona('EMP-007','john')">
+        <div class="check">✓</div>
+        <span class="persona-emoji">👔</span>
+        <div class="persona-name">John Lee</div>
+        <div class="persona-title">HR Manager</div>
+        <span class="persona-role role-hr">HR</span>
+        <div style="margin-top:.75rem;font-size:.78rem;color:#94a3b8;text-align:left;line-height:1.5">
+          ✓ Ask HR/IT questions<br>
+          ✓ View all PTO requests<br>
+          ✓ Approve / reject PTO<br>
+          ✓ View employee salaries<br>
+          ✓ See all tickets<br>
+          ✓ All employee features
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Approval Email <span style="color:#94a3b8;font-weight:400">(for PTO request notifications)</span></label>
+      <input type="email" id="manager-email" placeholder="your-email@example.com">
+      <div class="field-hint">PTO approval requests will be sent to this address. Use your real email for the demo.</div>
+      <div class="err" id="email-err">Please select a persona first.</div>
+    </div>
+
+    <button class="btn-primary" id="continue-btn" onclick="handleContinue()" disabled>
+      Build Workspace →
+    </button>
+  </div>
+</main>
+<script>
+let selectedCode = null;
+let selectedKey = null;
+
+function selectPersona(code, key) {
+  selectedCode = code;
+  selectedKey = key;
+  document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + key).classList.add('selected');
+  document.getElementById('continue-btn').disabled = false;
+}
+
+async function handleContinue() {
+  if (!selectedCode) {
+    document.getElementById('email-err').style.display = 'block';
+    return;
+  }
+  const email = document.getElementById('manager-email').value.trim();
+  const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_WORKSPACE_ID;
+
+  const btn = document.getElementById('continue-btn');
+  btn.disabled = true;
+  btn.textContent = 'Setting up…';
+
+  localStorage.setItem('askops_persona', selectedCode);
+  localStorage.setItem('askops_persona_name', selectedKey === 'adarsh' ? 'Adarsh Gella' : 'John Lee');
+  localStorage.setItem('askops_persona_role', selectedKey === 'adarsh' ? 'employee' : 'hr');
+  if (email) localStorage.setItem('askops_manager_email', email);
+
+  try {
+    await fetch(window.ASKOPS_API + '/webhook/api-set-persona', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({workspace_id: workspaceId, employee_code: selectedCode, manager_email: email || null})
+    });
+  } catch (e) {
+    // Non-fatal — session set in DB is best-effort
+    console.warn('Could not set persona in DB:', e);
+  }
+
+  window.location.href = 'build.html';
+}
+
+// Restore saved persona
+const saved = localStorage.getItem('askops_persona');
+if (saved === 'EMP-042') selectPersona('EMP-042', 'adarsh');
+else if (saved === 'EMP-007') selectPersona('EMP-007', 'john');
+
+const savedEmail = localStorage.getItem('askops_manager_email');
+if (savedEmail) document.getElementById('manager-email').value = savedEmail;
+</script>
+</body>
+</html>

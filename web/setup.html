@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AskOps · Company Setup</title>
+<script src="config.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
+  header{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 2rem;height:60px;display:flex;align-items:center;gap:.75rem}
+  .logo{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .logo-sub{color:#64748b;font-size:.85rem}
+  main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:3rem 1rem}
+  .card{background:#fff;border-radius:1rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:2.5rem;width:100%;max-width:680px}
+  .step-label{font-size:.8rem;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
+  h1{font-size:1.6rem;font-weight:700;color:#0f172a;margin-bottom:.4rem}
+  .sub{color:#64748b;font-size:.95rem;margin-bottom:2rem}
+  label{display:block;font-size:.85rem;font-weight:600;color:#374151;margin-bottom:.4rem}
+  .required{color:#ef4444}
+  input[type=text],input[type=url]{width:100%;padding:.7rem 1rem;border:1.5px solid #e2e8f0;border-radius:.5rem;font-size:.95rem;outline:none;transition:border .2s;background:#fff;color:#0f172a}
+  input[type=text]:focus,input[type=url]:focus{border-color:#6366f1}
+  .field{margin-bottom:1.5rem}
+  .upload-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+  .upload-btn{padding:.5rem 1rem;border:1.5px dashed #cbd5e1;border-radius:.5rem;background:#f8fafc;color:#64748b;font-size:.85rem;cursor:pointer;transition:all .2s}
+  .upload-btn:hover{border-color:#6366f1;color:#6366f1;background:#eef2ff}
+  .sample-btn{padding:.5rem 1rem;border:1.5px solid #e2e8f0;border-radius:.5rem;background:#fff;color:#6366f1;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s}
+  .sample-btn:hover{background:#eef2ff;border-color:#6366f1}
+  .sample-btn.active{background:#eef2ff;border-color:#6366f1;color:#4f46e5}
+  .sample-tag{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .6rem;background:#dcfce7;color:#15803d;border-radius:1rem;font-size:.78rem;font-weight:500}
+  .demo-banner{margin-top:1.5rem;padding:1.2rem 1.5rem;background:linear-gradient(135deg,#eef2ff,#f0fdf4);border:1.5px solid #c7d2fe;border-radius:.75rem;display:flex;align-items:flex-start;gap:.75rem}
+  .demo-banner-icon{font-size:1.4rem;flex-shrink:0}
+  .demo-banner-text{font-size:.9rem;color:#3730a3;font-weight:500}
+  .demo-banner-text span{display:block;color:#4338ca;font-size:.82rem;font-weight:400;margin-top:.2rem}
+  .fill-btn{width:100%;padding:1rem;border:2px dashed #c7d2fe;border-radius:.75rem;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4f46e5;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.5rem;margin:1.5rem 0}
+  .fill-btn:hover{border-color:#6366f1;background:linear-gradient(135deg,#e0e7ff,#ede9fe);transform:translateY(-1px)}
+  .divider{text-align:center;color:#94a3b8;font-size:.85rem;margin:1.5rem 0;position:relative}
+  .divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:#e2e8f0}
+  .divider::before{left:0}.divider::after{right:0}
+  .btn-primary{width:100%;padding:.9rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s}
+  .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.35)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+  .file-name{font-size:.8rem;color:#64748b;margin-top:.3rem}
+  .hidden-input{display:none}
+  .steps-bar{display:flex;gap:.5rem;margin-bottom:2rem}
+  .step-dot{flex:1;height:4px;border-radius:2px;background:#e2e8f0}
+  .step-dot.active{background:linear-gradient(90deg,#6366f1,#8b5cf6)}
+  .step-dot.done{background:#10b981}
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:1.3rem">⚡</span>
+  <span class="logo">AskOps</span>
+  <span class="logo-sub">AI-Powered IT & HR Service Desk</span>
+</header>
+<main>
+  <div class="card">
+    <div class="steps-bar">
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+    </div>
+    <div class="step-label">Step 1 of 3</div>
+    <h1>Company Setup</h1>
+    <p class="sub">Connect your company's knowledge base. We'll automatically build an AI agent trained on your content.</p>
+
+    <button class="fill-btn" onclick="fillDemo()">
+      ✨ Fill everything with demo data
+    </button>
+
+    <div id="demo-banner" class="demo-banner" style="display:none">
+      <span class="demo-banner-icon">🏢</span>
+      <div class="demo-banner-text">
+        Using Northwind Labs demo dataset
+        <span>Pre-loaded with sample policies, employee data, and knowledge base. Perfect for exploring AskOps.</span>
+      </div>
+    </div>
+
+    <div class="divider">or enter your own</div>
+
+    <form id="setup-form" onsubmit="handleSubmit(event)">
+      <div class="field">
+        <label>Company Website URL <span class="required">*</span></label>
+        <input type="url" id="website-url" placeholder="https://yourcompany.com" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label>Extra URL <span style="color:#94a3b8;font-weight:400">(careers / benefits page, optional)</span></label>
+        <input type="url" id="extra-url" placeholder="https://yourcompany.com/careers">
+      </div>
+
+      <div class="field">
+        <label>Policy Documents <span style="color:#94a3b8;font-weight:400">(PDF / TXT, optional)</span></label>
+        <div class="upload-row">
+          <button type="button" class="upload-btn" onclick="document.getElementById('policy-files').click()">📄 Choose Files</button>
+          <button type="button" class="sample-btn" id="sample-policy-btn" onclick="toggleSample('policy')">Use sample policies</button>
+          <input class="hidden-input" type="file" id="policy-files" multiple accept=".pdf,.txt,.md" onchange="showFiles('policy-files','policy-filenames')">
+        </div>
+        <div id="policy-filenames" class="file-name"></div>
+      </div>
+
+      <div class="field">
+        <label>Employee Data <span style="color:#94a3b8;font-weight:400">(CSV, optional)</span></label>
+        <div class="upload-row">
+          <button type="button" class="upload-btn" onclick="document.getElementById('csv-file').click()">📊 Choose File</button>
+          <button type="button" class="sample-btn" id="sample-csv-btn" onclick="toggleSample('csv')">Use sample employees</button>
+          <input class="hidden-input" type="file" id="csv-file" accept=".csv" onchange="showFiles('csv-file','csv-filename')">
+        </div>
+        <div id="csv-filename" class="file-name"></div>
+        <div style="margin-top:.5rem;font-size:.78rem;color:#ef4444">⚠️ Do not upload real employee data for demos.</div>
+      </div>
+
+      <button type="submit" class="btn-primary" id="continue-btn">Continue →</button>
+    </form>
+  </div>
+</main>
+<script>
+let demoMode = false;
+let samplePolicy = false;
+let sampleCsv = false;
+
+function fillDemo() {
+  demoMode = true;
+  document.getElementById('website-url').value = 'https://northwind.example.com';
+  document.getElementById('extra-url').value = 'https://northwind.example.com/careers';
+  samplePolicy = true;
+  sampleCsv = true;
+  document.getElementById('sample-policy-btn').classList.add('active');
+  document.getElementById('sample-csv-btn').classList.add('active');
+  document.getElementById('policy-filenames').innerHTML = '<span class="sample-tag">✓ Sample policies loaded</span>';
+  document.getElementById('csv-filename').innerHTML = '<span class="sample-tag">✓ Sample employees loaded</span>';
+  document.getElementById('demo-banner').style.display = 'flex';
+  localStorage.setItem('askops_demo_mode', 'true');
+  localStorage.setItem('askops_workspace_id', window.DEMO_WORKSPACE_ID);
+}
+
+function toggleSample(type) {
+  if (type === 'policy') {
+    samplePolicy = !samplePolicy;
+    const btn = document.getElementById('sample-policy-btn');
+    btn.classList.toggle('active', samplePolicy);
+    document.getElementById('policy-filenames').innerHTML = samplePolicy ? '<span class="sample-tag">✓ Sample policies selected</span>' : '';
+  } else {
+    sampleCsv = !sampleCsv;
+    const btn = document.getElementById('sample-csv-btn');
+    btn.classList.toggle('active', sampleCsv);
+    document.getElementById('csv-filename').innerHTML = sampleCsv ? '<span class="sample-tag">✓ Sample employees selected</span>' : '';
+  }
+}
+
+function showFiles(inputId, labelId) {
+  const files = document.getElementById(inputId).files;
+  if (files.length) {
+    const names = Array.from(files).map(f => f.name).join(', ');
+    document.getElementById(labelId).textContent = '📎 ' + names;
+  }
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+  const url = document.getElementById('website-url').value.trim();
+  const btn = document.getElementById('continue-btn');
+
+  if (demoMode) {
+    window.location.href = 'persona.html';
+    return;
+  }
+
+  if (!url) {
+    document.getElementById('website-url').focus();
+    document.getElementById('website-url').style.borderColor = '#ef4444';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Setting up…';
+
+  const extraUrl = document.getElementById('extra-url').value.trim();
+  try {
+    const res = await fetch(window.ASKOPS_API + '/webhook/api-setup-workspace', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        website_url: url,
+        extra_url: extraUrl || null,
+        use_sample_policy: samplePolicy,
+        use_sample_csv: sampleCsv
+      })
+    });
+    if (!res.ok) throw new Error('Setup failed');
+    const data = await res.json();
+    localStorage.setItem('askops_workspace_id', data.workspace_id || window.DEMO_WORKSPACE_ID);
+    localStorage.removeItem('askops_demo_mode');
+    window.location.href = 'persona.html';
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Continue →';
+    alert('Could not connect to backend. Try the demo mode instead.');
+  }
+}
+
+// Restore demo state on back-nav
+if (localStorage.getItem('askops_demo_mode') === 'true') fillDemo();
+</script>
+</body>
+</html>

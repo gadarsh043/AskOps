@@ -1,0 +1,327 @@
+{
+  "updatedAt": "2026-11-05T17:37:26.558Z",
+  "createdAt": "2026-11-05T17:32:42.929Z",
+  "id": "Ohxoc2XkUqxYCjor",
+  "name": "api.set-persona",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh2",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "api-set-persona",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "wh2"
+    },
+    {
+      "id": "pg2a",
+      "name": "Get Employee",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, workspace_id, full_name, access_role, title, employee_code, department\n                 FROM employees\n                 WHERE employee_code = '{{ $json.body.employee_code }}'\n                   AND workspace_id = '{{ $json.body.workspace_id }}'::uuid\n                 LIMIT 1",
+        "options": {}
+      }
+    },
+    {
+      "id": "pg2b",
+      "name": "Set Session",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT set_active_session(\n                   '{{ $json.workspace_id }}'::uuid,\n                   '{{ $json.id }}'::uuid\n                 ) AS ok",
+        "options": {}
+      }
+    },
+    {
+      "id": "pg2c",
+      "name": "Update Manager Email",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE workspaces\n                 SET demo_manager_email = '{{ $(\"Webhook\").first().json.body.manager_email }}'\n                 WHERE id = '{{ $(\"Webhook\").first().json.body.workspace_id }}'::uuid\n                   AND '{{ $(\"Webhook\").first().json.body.manager_email }}' != ''\n                 RETURNING id",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "fmt2",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const emp = $('Get Employee').first().json;\nreturn [{ json: {\n  status: 'ok',\n  employee_code: emp.employee_code,\n  full_name: emp.full_name,\n  access_role: emp.access_role,\n  title: emp.title,\n  department: emp.department\n} }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Employee": {
+      "main": [
+        [
+          {
+            "node": "Set Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Session": {
+      "main": [
+        [
+          {
+            "node": "Update Manager Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Manager Email": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "8b301699-deda-49d0-95b4-f7a97a22e0a1",
+  "activeVersionId": "8b301699-deda-49d0-95b4-f7a97a22e0a1",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T17:32:42.930Z",
+      "createdAt": "2026-11-05T17:32:42.930Z",
+      "role": "workflow:owner",
+      "workflowId": "Ohxoc2XkUqxYCjor",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T17:35:03.736Z",
+    "createdAt": "2026-11-05T17:35:03.736Z",
+    "versionId": "8b301699-deda-49d0-95b4-f7a97a22e0a1",
+    "workflowId": "Ohxoc2XkUqxYCjor",
+    "nodes": [
+      {
+        "id": "wh2",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "path": "api-set-persona",
+          "httpMethod": "POST",
+          "responseMode": "lastNode",
+          "options": {
+            "allowedOrigins": "*"
+          }
+        },
+        "webhookId": "wh2"
+      },
+      {
+        "id": "pg2a",
+        "name": "Get Employee",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT id, workspace_id, full_name, access_role, title, employee_code, department\n                 FROM employees\n                 WHERE employee_code = '{{ $json.body.employee_code }}'\n                   AND workspace_id = '{{ $json.body.workspace_id }}'::uuid\n                 LIMIT 1",
+          "options": {}
+        }
+      },
+      {
+        "id": "pg2b",
+        "name": "Set Session",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          440,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT set_active_session(\n                   '{{ $json.workspace_id }}'::uuid,\n                   '{{ $json.id }}'::uuid\n                 ) AS ok",
+          "options": {}
+        }
+      },
+      {
+        "id": "pg2c",
+        "name": "Update Manager Email",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          660,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "UPDATE workspaces\n                 SET demo_manager_email = '{{ $(\"Webhook\").first().json.body.manager_email }}'\n                 WHERE id = '{{ $(\"Webhook\").first().json.body.workspace_id }}'::uuid\n                   AND '{{ $(\"Webhook\").first().json.body.manager_email }}' != ''\n                 RETURNING id",
+          "options": {}
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "fmt2",
+        "name": "Format",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const emp = $('Get Employee').first().json;\nreturn [{ json: {\n  status: 'ok',\n  employee_code: emp.employee_code,\n  full_name: emp.full_name,\n  access_role: emp.access_role,\n  title: emp.title,\n  department: emp.department\n} }];"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Get Employee",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Employee": {
+        "main": [
+          [
+            {
+              "node": "Set Session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Session": {
+        "main": [
+          [
+            {
+              "node": "Update Manager Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update Manager Email": {
+        "main": [
+          [
+            {
+              "node": "Format",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}

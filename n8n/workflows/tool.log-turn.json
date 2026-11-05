@@ -1,0 +1,357 @@
+{
+  "updatedAt": "2026-11-05T17:37:28.537Z",
+  "createdAt": "2026-11-05T17:32:44.829Z",
+  "id": "cVLkAUO3c9aEahqe",
+  "name": "tool.log-turn",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh7",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "tool-log-turn",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "wh7"
+    },
+    {
+      "id": "prep7",
+      "name": "Prep Turn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n// PII redaction: remove emails, phone numbers\nfunction redactPII(text) {\n  if (!text) return '';\n  return text\n    .replace(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g, '[EMAIL]')\n    .replace(/\\b(?:\\+?1[-.\\s]?)?(?:\\(?[2-9][0-9]{2}\\)?[-.\\s]?)?[2-9][0-9]{2}[-.\\s]?[0-9]{4}\\b/g, '[PHONE]')\n    .replace(/\\$[0-9]{3,}(?:,[0-9]{3})*(?:\\.[0-9]{2})?/g, '[AMOUNT]');\n}\nreturn [{ json: {\n  workspace_id:    body.workspace_id,\n  employee_id:     body.employee_id || null,\n  conversation_id: body.conversation_id || null,\n  role:            body.role || 'user',\n  content_redacted: redactPII(body.content),\n  route:           body.route || null,\n  cache_hit:       body.cache_hit || false,\n  latency_ms:      body.latency_ms || null,\n  outcome:         body.outcome || 'in_progress'\n} }];"
+      }
+    },
+    {
+      "id": "pg7a",
+      "name": "Ensure Conversation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Upsert conversation: if conversation_id provided, use it; otherwise create new\nWITH ins AS (\n  INSERT INTO conversations (id, workspace_id, employee_id, outcome)\n  VALUES (\n    COALESCE(\n      CASE WHEN '{{ $json.conversation_id }}' = 'null' OR '{{ $json.conversation_id }}' = ''\n           THEN NULL\n           ELSE '{{ $json.conversation_id }}'::uuid END,\n      gen_random_uuid()\n    ),\n    '{{ $json.workspace_id }}'::uuid,\n    {{ $json.employee_id ? \"'\" + $json.employee_id + \"'::uuid\" : 'NULL' }},\n    '{{ $json.outcome }}'\n  )\n  ON CONFLICT (id) DO UPDATE SET outcome = EXCLUDED.outcome\n  RETURNING id\n)\nSELECT id FROM ins",
+        "options": {}
+      }
+    },
+    {
+      "id": "merge7",
+      "name": "Merge Conv ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const conv = $('Ensure Conversation').first().json;\nconst prep = $('Prep Turn').first().json;\nreturn [{ json: { ...prep, conversation_id: conv.id } }];"
+      }
+    },
+    {
+      "id": "pg7b",
+      "name": "Insert Turn",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO turns (conversation_id, role, content_redacted, route, cache_hit, latency_ms)\nVALUES (\n  '{{ $json.conversation_id }}'::uuid,\n  '{{ $(\"Prep Turn\").first().json.role }}',\n  '{{ $(\"Prep Turn\").first().json.content_redacted.replace(/'/g, \"''\") }}',\n  {{ $(\"Prep Turn\").first().json.route ? \"'\" + $(\"Prep Turn\").first().json.route + \"'\" : 'NULL' }},\n  {{ $(\"Prep Turn\").first().json.cache_hit }},\n  {{ $(\"Prep Turn\").first().json.latency_ms || 'NULL' }}\n)\nRETURNING id",
+        "options": {}
+      }
+    },
+    {
+      "id": "fmt7",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const turn = $input.first().json;\nconst conv_id = $('Merge Conv ID').first().json.conversation_id;\nreturn [{ json: { status: 'ok', turn_id: turn.id, conversation_id: conv_id } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prep Turn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Turn": {
+      "main": [
+        [
+          {
+            "node": "Ensure Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Conversation": {
+      "main": [
+        [
+          {
+            "node": "Merge Conv ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Conv ID": {
+      "main": [
+        [
+          {
+            "node": "Insert Turn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Turn": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "73c09e02-f70a-4f43-9fe8-fd02ba484a3e",
+  "activeVersionId": "73c09e02-f70a-4f43-9fe8-fd02ba484a3e",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T17:32:44.830Z",
+      "createdAt": "2026-11-05T17:32:44.830Z",
+      "role": "workflow:owner",
+      "workflowId": "cVLkAUO3c9aEahqe",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T17:32:44.833Z",
+    "createdAt": "2026-11-05T17:32:44.833Z",
+    "versionId": "73c09e02-f70a-4f43-9fe8-fd02ba484a3e",
+    "workflowId": "cVLkAUO3c9aEahqe",
+    "nodes": [
+      {
+        "id": "wh7",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "path": "tool-log-turn",
+          "httpMethod": "POST",
+          "responseMode": "lastNode",
+          "options": {
+            "allowedOrigins": "*"
+          }
+        },
+        "webhookId": "wh7"
+      },
+      {
+        "id": "prep7",
+        "name": "Prep Turn",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const body = $input.first().json.body || $input.first().json;\n// PII redaction: remove emails, phone numbers\nfunction redactPII(text) {\n  if (!text) return '';\n  return text\n    .replace(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g, '[EMAIL]')\n    .replace(/\\b(?:\\+?1[-.\\s]?)?(?:\\(?[2-9][0-9]{2}\\)?[-.\\s]?)?[2-9][0-9]{2}[-.\\s]?[0-9]{4}\\b/g, '[PHONE]')\n    .replace(/\\$[0-9]{3,}(?:,[0-9]{3})*(?:\\.[0-9]{2})?/g, '[AMOUNT]');\n}\nreturn [{ json: {\n  workspace_id:    body.workspace_id,\n  employee_id:     body.employee_id || null,\n  conversation_id: body.conversation_id || null,\n  role:            body.role || 'user',\n  content_redacted: redactPII(body.content),\n  route:           body.route || null,\n  cache_hit:       body.cache_hit || false,\n  latency_ms:      body.latency_ms || null,\n  outcome:         body.outcome || 'in_progress'\n} }];"
+        }
+      },
+      {
+        "id": "pg7a",
+        "name": "Ensure Conversation",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          440,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "-- Upsert conversation: if conversation_id provided, use it; otherwise create new\nWITH ins AS (\n  INSERT INTO conversations (id, workspace_id, employee_id, outcome)\n  VALUES (\n    COALESCE(\n      CASE WHEN '{{ $json.conversation_id }}' = 'null' OR '{{ $json.conversation_id }}' = ''\n           THEN NULL\n           ELSE '{{ $json.conversation_id }}'::uuid END,\n      gen_random_uuid()\n    ),\n    '{{ $json.workspace_id }}'::uuid,\n    {{ $json.employee_id ? \"'\" + $json.employee_id + \"'::uuid\" : 'NULL' }},\n    '{{ $json.outcome }}'\n  )\n  ON CONFLICT (id) DO UPDATE SET outcome = EXCLUDED.outcome\n  RETURNING id\n)\nSELECT id FROM ins",
+          "options": {}
+        }
+      },
+      {
+        "id": "merge7",
+        "name": "Merge Conv ID",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          660,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const conv = $('Ensure Conversation').first().json;\nconst prep = $('Prep Turn').first().json;\nreturn [{ json: { ...prep, conversation_id: conv.id } }];"
+        }
+      },
+      {
+        "id": "pg7b",
+        "name": "Insert Turn",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          880,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO turns (conversation_id, role, content_redacted, route, cache_hit, latency_ms)\nVALUES (\n  '{{ $json.conversation_id }}'::uuid,\n  '{{ $(\"Prep Turn\").first().json.role }}',\n  '{{ $(\"Prep Turn\").first().json.content_redacted.replace(/'/g, \"''\") }}',\n  {{ $(\"Prep Turn\").first().json.route ? \"'\" + $(\"Prep Turn\").first().json.route + \"'\" : 'NULL' }},\n  {{ $(\"Prep Turn\").first().json.cache_hit }},\n  {{ $(\"Prep Turn\").first().json.latency_ms || 'NULL' }}\n)\nRETURNING id",
+          "options": {}
+        }
+      },
+      {
+        "id": "fmt7",
+        "name": "Format",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1100,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const turn = $input.first().json;\nconst conv_id = $('Merge Conv ID').first().json.conversation_id;\nreturn [{ json: { status: 'ok', turn_id: turn.id, conversation_id: conv_id } }];"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Prep Turn",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prep Turn": {
+        "main": [
+          [
+            {
+              "node": "Ensure Conversation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ensure Conversation": {
+        "main": [
+          [
+            {
+              "node": "Merge Conv ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Conv ID": {
+        "main": [
+          [
+            {
+              "node": "Insert Turn",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Insert Turn": {
+        "main": [
+          [
+            {
+              "node": "Format",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}

@@ -1,0 +1,197 @@
+{
+  "updatedAt": "2026-11-05T17:37:27.330Z",
+  "createdAt": "2026-11-05T17:32:43.686Z",
+  "id": "rJqoPm1NjVe8GtUM",
+  "name": "api.tool-trace",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "api-tool-trace",
+        "httpMethod": "GET",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "wh4"
+    },
+    {
+      "id": "pg4",
+      "name": "Get Tool Calls",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(\n                   json_agg(\n                     json_build_object(\n                       'tool_name', tc.tool_name,\n                       'status', tc.status,\n                       'latency_ms', tc.latency_ms,\n                       'created_at', TO_CHAR(tc.created_at,'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),\n                       'output_preview', SUBSTRING(tc.output::text, 1, 300)\n                     ) ORDER BY tc.created_at DESC\n                   ),\n                   '[]'::json\n                 ) AS calls\n                 FROM (\n                   SELECT tool_name, status, latency_ms, created_at, output\n                   FROM tool_calls\n                   WHERE workspace_id = '{{ $json.query.workspace_id }}'::uuid\n                   ORDER BY created_at DESC\n                   LIMIT 25\n                 ) tc",
+        "options": {}
+      }
+    },
+    {
+      "id": "fmt4",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nreturn [{ json: { status: 'ok', calls: d.calls || [] } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Tool Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tool Calls": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "c28b27b9-275d-4c35-a931-3eeca5115b62",
+  "activeVersionId": "c28b27b9-275d-4c35-a931-3eeca5115b62",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T17:32:43.687Z",
+      "createdAt": "2026-11-05T17:32:43.687Z",
+      "role": "workflow:owner",
+      "workflowId": "rJqoPm1NjVe8GtUM",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T17:36:20.264Z",
+    "createdAt": "2026-11-05T17:36:20.264Z",
+    "versionId": "c28b27b9-275d-4c35-a931-3eeca5115b62",
+    "workflowId": "rJqoPm1NjVe8GtUM",
+    "nodes": [
+      {
+        "id": "wh4",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "path": "api-tool-trace",
+          "httpMethod": "GET",
+          "responseMode": "lastNode",
+          "options": {
+            "allowedOrigins": "*"
+          }
+        },
+        "webhookId": "wh4"
+      },
+      {
+        "id": "pg4",
+        "name": "Get Tool Calls",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT COALESCE(\n                   json_agg(\n                     json_build_object(\n                       'tool_name', tc.tool_name,\n                       'status', tc.status,\n                       'latency_ms', tc.latency_ms,\n                       'created_at', TO_CHAR(tc.created_at,'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),\n                       'output_preview', SUBSTRING(tc.output::text, 1, 300)\n                     ) ORDER BY tc.created_at DESC\n                   ),\n                   '[]'::json\n                 ) AS calls\n                 FROM (\n                   SELECT tool_name, status, latency_ms, created_at, output\n                   FROM tool_calls\n                   WHERE workspace_id = '{{ $json.query.workspace_id }}'::uuid\n                   ORDER BY created_at DESC\n                   LIMIT 25\n                 ) tc",
+          "options": {}
+        }
+      },
+      {
+        "id": "fmt4",
+        "name": "Format",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const d = $input.first().json;\nreturn [{ json: { status: 'ok', calls: d.calls || [] } }];"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Get Tool Calls",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Tool Calls": {
+        "main": [
+          [
+            {
+              "node": "Format",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}

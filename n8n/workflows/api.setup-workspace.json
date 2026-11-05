@@ -1,0 +1,391 @@
+{
+  "updatedAt": "2026-11-05T17:37:27.731Z",
+  "createdAt": "2026-11-05T17:32:44.066Z",
+  "id": "HzfntzjhkIOjy5Vj",
+  "name": "api.setup-workspace",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh5",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "api-setup-workspace",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "wh5"
+    },
+    {
+      "id": "pg5a",
+      "name": "Create Workspace",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO workspaces\n                   (company_name, website_url, extra_url, industry, status,\n                    demo_manager_email, webhook_url, expires_at)\n                 VALUES (\n                   COALESCE(NULLIF('{{ $json.body.company_name }}',''), 'Demo Company'),\n                   NULLIF('{{ $json.body.company_url }}',''),\n                   NULLIF('{{ $json.body.extra_url }}',''),\n                   COALESCE(NULLIF('{{ $json.body.industry }}',''), 'Technology'),\n                   'building',\n                   COALESCE(NULLIF('{{ $json.body.manager_email }}',''), 'your-email@example.com'),\n                   'http://localhost:5678',\n                   now() + interval '7 days'\n                 )\n                 RETURNING id",
+        "options": {}
+      }
+    },
+    {
+      "id": "pg5seed",
+      "name": "Seed Personas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH\nadarsh AS (\n  INSERT INTO employees\n    (workspace_id, employee_code, full_name, email, title,\n     department, access_role, hire_date, pto_balance_days, is_persona)\n  VALUES (\n    '{{ $json.id }}'::uuid,\n    'EMP-042', 'Adarsh Gella', 'adarsh.gella@demo.local',\n    'Software Engineer', 'Engineering', 'employee', '2025-03-10', 8, true\n  )\n  ON CONFLICT (workspace_id, employee_code) DO UPDATE SET is_persona = true\n  RETURNING id\n),\njohn AS (\n  INSERT INTO employees\n    (workspace_id, employee_code, full_name, email, title,\n     department, access_role, hire_date, pto_balance_days, is_persona)\n  VALUES (\n    '{{ $json.id }}'::uuid,\n    'EMP-007', 'John Lee', 'john.lee@demo.local',\n    'HR Manager', 'People', 'hr', '2019-06-01', 15, true\n  )\n  ON CONFLICT (workspace_id, employee_code) DO UPDATE SET is_persona = true\n  RETURNING id\n),\nmaya AS (\n  INSERT INTO employees\n    (workspace_id, employee_code, full_name, email, title,\n     department, access_role, hire_date, pto_balance_days, is_persona)\n  VALUES (\n    '{{ $json.id }}'::uuid,\n    'EMP-015', 'Maya Patel', 'maya.patel@demo.local',\n    'Engineering Manager', 'Engineering', 'employee', '2020-01-15', 12, false\n  )\n  ON CONFLICT (workspace_id, employee_code) DO UPDATE SET is_persona = false\n  RETURNING id\n),\nset_mgr AS (\n  UPDATE employees e SET manager_id = maya.id\n  FROM adarsh, maya WHERE e.id = adarsh.id\n)\nSELECT '{{ $json.id }}'::text AS workspace_id FROM adarsh",
+        "options": {}
+      }
+    },
+    {
+      "id": "pg5b",
+      "name": "Set Persona Session",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT set_active_session(\n                   '{{ $json.workspace_id }}'::uuid,\n                   (SELECT id FROM employees\n                    WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n                      AND employee_code = COALESCE(NULLIF('{{ $(\"Webhook\").first().json.body.persona_code }}',''), 'EMP-042')\n                    LIMIT 1)\n                 ) AS ok",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "pg5c",
+      "name": "Emit Start Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO build_events (workspace_id, step, status, message, progress)\n                 VALUES (\n                   '{{ $(\"Seed Personas\").first().json.workspace_id }}'::uuid,\n                   'ready', 'done', 'Workspace created. Ready to ingest knowledge base.', 100\n                 )\n                 RETURNING '{{ $(\"Seed Personas\").first().json.workspace_id }}'::text AS workspace_id",
+        "options": {}
+      }
+    },
+    {
+      "id": "fmt5",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const wsId = $('Emit Start Event').first().json.workspace_id\n  || $('Seed Personas').first().json.workspace_id;\nreturn [{ json: { status: 'building', workspace_id: wsId } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Workspace": {
+      "main": [
+        [
+          {
+            "node": "Seed Personas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Personas": {
+      "main": [
+        [
+          {
+            "node": "Set Persona Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Persona Session": {
+      "main": [
+        [
+          {
+            "node": "Emit Start Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emit Start Event": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "1ea66d0e-c97d-4db2-a623-2aa15c49522e",
+  "activeVersionId": "1ea66d0e-c97d-4db2-a623-2aa15c49522e",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T17:32:44.067Z",
+      "createdAt": "2026-11-05T17:32:44.067Z",
+      "role": "workflow:owner",
+      "workflowId": "HzfntzjhkIOjy5Vj",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T17:37:27.732Z",
+    "createdAt": "2026-11-05T17:37:27.732Z",
+    "versionId": "1ea66d0e-c97d-4db2-a623-2aa15c49522e",
+    "workflowId": "HzfntzjhkIOjy5Vj",
+    "nodes": [
+      {
+        "id": "wh5",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "path": "api-setup-workspace",
+          "httpMethod": "POST",
+          "responseMode": "lastNode",
+          "options": {
+            "allowedOrigins": "*"
+          }
+        },
+        "webhookId": "wh5"
+      },
+      {
+        "id": "pg5a",
+        "name": "Create Workspace",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO workspaces\n                   (company_name, website_url, extra_url, industry, status,\n                    demo_manager_email, webhook_url, expires_at)\n                 VALUES (\n                   COALESCE(NULLIF('{{ $json.body.company_name }}',''), 'Demo Company'),\n                   NULLIF('{{ $json.body.company_url }}',''),\n                   NULLIF('{{ $json.body.extra_url }}',''),\n                   COALESCE(NULLIF('{{ $json.body.industry }}',''), 'Technology'),\n                   'building',\n                   COALESCE(NULLIF('{{ $json.body.manager_email }}',''), 'your-email@example.com'),\n                   'http://localhost:5678',\n                   now() + interval '7 days'\n                 )\n                 RETURNING id",
+          "options": {}
+        }
+      },
+      {
+        "id": "pg5seed",
+        "name": "Seed Personas",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          440,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "WITH\nadarsh AS (\n  INSERT INTO employees\n    (workspace_id, employee_code, full_name, email, title,\n     department, access_role, hire_date, pto_balance_days, is_persona)\n  VALUES (\n    '{{ $json.id }}'::uuid,\n    'EMP-042', 'Adarsh Gella', 'adarsh.gella@demo.local',\n    'Software Engineer', 'Engineering', 'employee', '2025-03-10', 8, true\n  )\n  ON CONFLICT (workspace_id, employee_code) DO UPDATE SET is_persona = true\n  RETURNING id\n),\njohn AS (\n  INSERT INTO employees\n    (workspace_id, employee_code, full_name, email, title,\n     department, access_role, hire_date, pto_balance_days, is_persona)\n  VALUES (\n    '{{ $json.id }}'::uuid,\n    'EMP-007', 'John Lee', 'john.lee@demo.local',\n    'HR Manager', 'People', 'hr', '2019-06-01', 15, true\n  )\n  ON CONFLICT (workspace_id, employee_code) DO UPDATE SET is_persona = true\n  RETURNING id\n),\nmaya AS (\n  INSERT INTO employees\n    (workspace_id, employee_code, full_name, email, title,\n     department, access_role, hire_date, pto_balance_days, is_persona)\n  VALUES (\n    '{{ $json.id }}'::uuid,\n    'EMP-015', 'Maya Patel', 'maya.patel@demo.local',\n    'Engineering Manager', 'Engineering', 'employee', '2020-01-15', 12, false\n  )\n  ON CONFLICT (workspace_id, employee_code) DO UPDATE SET is_persona = false\n  RETURNING id\n),\nset_mgr AS (\n  UPDATE employees e SET manager_id = maya.id\n  FROM adarsh, maya WHERE e.id = adarsh.id\n)\nSELECT '{{ $json.id }}'::text AS workspace_id FROM adarsh",
+          "options": {}
+        }
+      },
+      {
+        "id": "pg5b",
+        "name": "Set Persona Session",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          660,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT set_active_session(\n                   '{{ $json.workspace_id }}'::uuid,\n                   (SELECT id FROM employees\n                    WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n                      AND employee_code = COALESCE(NULLIF('{{ $(\"Webhook\").first().json.body.persona_code }}',''), 'EMP-042')\n                    LIMIT 1)\n                 ) AS ok",
+          "options": {}
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "pg5c",
+        "name": "Emit Start Event",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          880,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO build_events (workspace_id, step, status, message, progress)\n                 VALUES (\n                   '{{ $(\"Seed Personas\").first().json.workspace_id }}'::uuid,\n                   'ready', 'done', 'Workspace created. Ready to ingest knowledge base.', 100\n                 )\n                 RETURNING '{{ $(\"Seed Personas\").first().json.workspace_id }}'::text AS workspace_id",
+          "options": {}
+        }
+      },
+      {
+        "id": "fmt5",
+        "name": "Format",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1100,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const wsId = $('Emit Start Event').first().json.workspace_id\n  || $('Seed Personas').first().json.workspace_id;\nreturn [{ json: { status: 'building', workspace_id: wsId } }];"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Create Workspace",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Workspace": {
+        "main": [
+          [
+            {
+              "node": "Seed Personas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Seed Personas": {
+        "main": [
+          [
+            {
+              "node": "Set Persona Session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Persona Session": {
+        "main": [
+          [
+            {
+              "node": "Emit Start Event",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Emit Start Event": {
+        "main": [
+          [
+            {
+              "node": "Format",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}

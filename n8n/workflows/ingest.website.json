@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-05T09:02:36.438Z",
+  "updatedAt": "2026-11-05T17:37:28.922Z",
   "createdAt": "2026-11-05T08:49:39.041Z",
   "id": "ltWeFOzNMrZ1DxxK",
   "name": "ingest.website",
@@ -20,7 +20,9 @@
         "httpMethod": "POST",
         "path": "ingest/website",
         "responseMode": "lastNode",
-        "options": {}
+        "options": {
+          "allowedOrigins": "*"
+        }
       }
     },
     {
@@ -32,8 +34,30 @@
         220,
         0
       ],
+      "onError": "continueErrorOutput",
       "parameters": {
-        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst wsId  = body.workspace_id;\nconst rawUrl = (body.url || '').trim().replace(/\\/+$/, '');\nif (!wsId || !rawUrl) throw new Error('workspace_id and url are required');\n\n// Normalise: ensure https://\nconst url = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;\n\nreturn [{ json: { workspace_id: wsId, base_url: url, _start_at: Date.now() } }];"
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst wsId  = body.workspace_id;\nconst rawUrl = (body.url || '').trim().replace(/\\/+$/, '');\nif (!wsId || !rawUrl) throw new Error('workspace_id and url are required');\nconst url = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;\nreturn [{ json: { workspace_id: wsId, base_url: url, _start_at: Date.now() } }];"
+      }
+    },
+    {
+      "id": "ing-evstart",
+      "name": "Emit Start Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO build_events (workspace_id, step, status, message, progress)\nVALUES (\n  '{{ $json.workspace_id }}'::uuid,\n  'crawl', 'started', 'Fetching website content from {{ $json.base_url }}', 10\n);\nSELECT\n  '{{ $json.workspace_id }}'::text AS workspace_id,\n  '{{ $json.base_url }}'::text     AS base_url,\n  {{ $json._start_at }}::bigint    AS _start_at",
+        "options": {}
       },
       "onError": "continueErrorOutput"
     },
@@ -43,7 +67,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
+        660,
         0
       ],
       "parameters": {
@@ -56,9 +80,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        660,
+        880,
         0
       ],
+      "onError": "continueErrorOutput",
       "parameters": {
         "method": "GET",
         "url": "={{ $json.jina_url }}",
@@ -82,8 +107,7 @@
             }
           }
         }
-      },
-      "onError": "continueErrorOutput"
+      }
     },
     {
       "id": "ing-ext",
@@ -91,13 +115,13 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
+        1100,
         0
       ],
+      "onError": "continueErrorOutput",
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst content = $input.first().json.data || $input.first().json.body || '';\nconst wsId = $('Validate Input').first().json.workspace_id;\nconst baseUrl = $('Validate Input').first().json.base_url;\n\n// Chunk the content: ~800 chars with 100 overlap, keeping paragraphs\nfunction chunkText(text, maxLen=800, overlap=100) {\n  const paras = text.split(/\\n\\n+/).filter(p => p.trim().length > 20);\n  const chunks = [];\n  let cur = '';\n  for (const p of paras) {\n    if (cur.length + p.length + 2 > maxLen && cur.length > 0) {\n      chunks.push(cur.trim());\n      // overlap: keep last paragraph\n      cur = cur.split('\\n\\n').slice(-1)[0] + '\\n\\n' + p;\n    } else {\n      cur = cur ? cur + '\\n\\n' + p : p;\n    }\n  }\n  if (cur.trim().length > 0) chunks.push(cur.trim());\n  return chunks;\n}\n\nconst chunks = chunkText(content, 800, 100).slice(0, 20); // cap at 20 chunks per page\nreturn chunks.map((c, i) => ({ json: {\n  workspace_id: wsId,\n  base_url: baseUrl,\n  source_url: baseUrl,\n  chunk_index: i,\n  content: c,\n  total_chunks: chunks.length\n} }));"
-      },
-      "onError": "continueErrorOutput"
+        "jsCode": "const item = $input.first().json;\nconst content = $input.first().json.data || $input.first().json.body || '';\nconst wsId = $('Validate Input').first().json.workspace_id;\nconst baseUrl = $('Validate Input').first().json.base_url;\nfunction chunkText(text, maxLen=800, overlap=100) {\n  const paras = text.split(/\\n\\n+/).filter(p => p.trim().length > 20);\n  const chunks = [];\n  let cur = '';\n  for (const p of paras) {\n    if (cur.length + p.length + 2 > maxLen && cur.length > 0) {\n      chunks.push(cur.trim());\n      cur = cur.split('\\n\\n').slice(-1)[0] + '\\n\\n' + p;\n    } else {\n      cur = cur ? cur + '\\n\\n' + p : p;\n    }\n  }\n  if (cur.trim().length > 0) chunks.push(cur.trim());\n  return chunks;\n}\nconst chunks = chunkText(content, 800, 100).slice(0, 20);\nreturn chunks.map((c, i) => ({ json: {\n  workspace_id: wsId, base_url: baseUrl, source_url: baseUrl,\n  chunk_index: i, content: c, total_chunks: chunks.length\n} }));"
+      }
     },
     {
       "id": "ing-emb",
@@ -105,9 +129,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1100,
+        1320,
         0
       ],
+      "onError": "continueErrorOutput",
       "credentials": {
         "httpQueryAuth": {
           "id": "emzXNUHrKp6cIn1O",
@@ -123,8 +148,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":$json.content}]},\"taskType\":\"RETRIEVAL_DOCUMENT\",\"outputDimensionality\":768}) }}",
         "options": {}
-      },
-      "onError": "continueErrorOutput"
+      }
     },
     {
       "id": "ing-femb",
@@ -132,13 +156,13 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
+        1540,
         0
       ],
+      "onError": "continueErrorOutput",
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst vals = item.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embed error: no values from Gemini');\nconst vec = '[' + vals.join(',') + ']';\nconst ctx = $('Extract Chunks').first().json;\n// $('Extract Chunks') may reference wrong item in loop; use current item fields\nreturn [{ json: {\n  workspace_id: ctx.workspace_id || item.workspace_id,\n  base_url:     ctx.base_url     || item.base_url,\n  source_url:   ctx.source_url   || item.source_url,\n  chunk_index:  ctx.chunk_index  ?? item.chunk_index ?? 0,\n  content:      ctx.content      || item.content,\n  embedding_str: vec\n} }];"
-      },
-      "onError": "continueErrorOutput"
+        "jsCode": "const item = $input.first().json;\nconst vals = item.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embed error: no values from Gemini');\nconst vec = '[' + vals.join(',') + ']';\nconst ctx = $('Extract Chunks').first().json;\nreturn [{ json: {\n  workspace_id: ctx.workspace_id || item.workspace_id,\n  base_url:     ctx.base_url     || item.base_url,\n  source_url:   ctx.source_url   || item.source_url,\n  chunk_index:  ctx.chunk_index  ?? item.chunk_index ?? 0,\n  content:      ctx.content      || item.content,\n  embedding_str: vec\n} }];"
+      }
     },
     {
       "id": "ing-pg",
@@ -146,7 +170,42 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
+        1760,
+        0
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "WITH ins_doc AS (\n  INSERT INTO documents (workspace_id, source_type, title, source_url, content)\n  VALUES ('{{ $json.workspace_id }}'::uuid, 'website',\n    'Website: {{ $json.base_url }}', '{{ $json.source_url }}',\n    '{{ $json.content.substring(0,200).replace(/'/g, \"''\") }}...')\n  ON CONFLICT DO NOTHING RETURNING id\n),\ndoc_id AS (\n  SELECT id FROM ins_doc\n  UNION ALL\n  SELECT id FROM documents\n   WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n     AND source_url = '{{ $json.source_url }}' AND source_type = 'website'\n   LIMIT 1\n)\nINSERT INTO chunks (document_id, workspace_id, chunk_index, content, embedding)\nVALUES ((SELECT id FROM doc_id LIMIT 1), '{{ $json.workspace_id }}'::uuid,\n  {{ $json.chunk_index }}, '{{ $json.content.replace(/'/g, \"''\") }}',\n  '{{ $json.embedding_str }}'::vector)\nON CONFLICT DO NOTHING RETURNING id::text"
+      }
+    },
+    {
+      "id": "ing-done",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const wsId = $('Validate Input').first().json.workspace_id;\nconst count = $input.all().length;\nreturn [{ json: { status: 'done', chunks_stored: count, workspace_id: wsId,\n  message: 'Ingestion complete \u2014 ' + count + ' chunks stored.' } }];"
+      }
+    },
+    {
+      "id": "ing-evend",
+      "name": "Emit Complete Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2200,
         0
       ],
       "credentials": {
@@ -157,22 +216,8 @@
       },
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH ins_doc AS (\n  INSERT INTO documents (workspace_id, source_type, title, source_url, content)\n  VALUES (\n    '{{ $json.workspace_id }}'::uuid,\n    'website',\n    'Website: {{ $json.base_url }}',\n    '{{ $json.source_url }}',\n    '{{ $json.content.substring(0,200).replace(/'/g, \"''\") }}...'\n  )\n  ON CONFLICT DO NOTHING\n  RETURNING id\n),\ndoc_id AS (\n  SELECT id FROM ins_doc\n  UNION ALL\n  SELECT id FROM documents\n   WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n     AND source_url   = '{{ $json.source_url }}'\n     AND source_type  = 'website'\n   LIMIT 1\n)\nINSERT INTO chunks (document_id, workspace_id, chunk_index, content, embedding)\nVALUES (\n  (SELECT id FROM doc_id LIMIT 1),\n  '{{ $json.workspace_id }}'::uuid,\n  {{ $json.chunk_index }},\n  '{{ $json.content.replace(/'/g, \"''\") }}',\n  '{{ $json.embedding_str }}'::vector\n)\nON CONFLICT DO NOTHING\nRETURNING id::text",
+        "query": "INSERT INTO build_events (workspace_id, step, status, message, progress)\nVALUES (\n  '{{ $json.workspace_id }}'::uuid,\n  'ready', 'done',\n  'Knowledge base ready \u2014 {{ $json.chunks_stored }} chunks stored from website.',\n  100\n)\nRETURNING\n  '{{ $json.workspace_id }}'::text AS workspace_id,\n  {{ $json.chunks_stored }}        AS chunks_stored,\n  'done'::text                     AS status",
         "options": {}
-      },
-      "onError": "continueErrorOutput"
-    },
-    {
-      "id": "ing-done",
-      "name": "Done",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1760,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const count = $input.all().length;\nreturn [{ json: { status: 'done', chunks_stored: count, message: 'Ingestion complete.' } }];"
       }
     },
     {
@@ -181,7 +226,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
+        660,
         220
       ],
       "parameters": {
@@ -202,6 +247,24 @@
       ]
     },
     "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Emit Start Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emit Start Event": {
       "main": [
         [
           {
@@ -319,6 +382,17 @@
           }
         ]
       ]
+    },
+    "Done": {
+      "main": [
+        [
+          {
+            "node": "Emit Complete Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -329,8 +403,8 @@
   "staticData": null,
   "meta": null,
   "pinData": null,
-  "versionId": "fc574a16-1a78-48ba-9ae1-37de78ade6fa",
-  "activeVersionId": "fc574a16-1a78-48ba-9ae1-37de78ade6fa",
+  "versionId": "fda85ce6-e25f-49d4-8f68-9a839f2acdc4",
+  "activeVersionId": "fda85ce6-e25f-49d4-8f68-9a839f2acdc4",
   "triggerCount": 1,
   "shared": [
     {
@@ -342,9 +416,9 @@
     }
   ],
   "activeVersion": {
-    "updatedAt": "2026-11-05T08:49:39.043Z",
-    "createdAt": "2026-11-05T08:49:39.043Z",
-    "versionId": "fc574a16-1a78-48ba-9ae1-37de78ade6fa",
+    "updatedAt": "2026-11-05T17:37:28.922Z",
+    "createdAt": "2026-11-05T17:37:28.922Z",
+    "versionId": "fda85ce6-e25f-49d4-8f68-9a839f2acdc4",
     "workflowId": "ltWeFOzNMrZ1DxxK",
     "nodes": [
       {
@@ -361,7 +435,9 @@
           "httpMethod": "POST",
           "path": "ingest/website",
           "responseMode": "lastNode",
-          "options": {}
+          "options": {
+            "allowedOrigins": "*"
+          }
         }
       },
       {
@@ -373,8 +449,30 @@
           220,
           0
         ],
+        "onError": "continueErrorOutput",
         "parameters": {
-          "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst wsId  = body.workspace_id;\nconst rawUrl = (body.url || '').trim().replace(/\\/+$/, '');\nif (!wsId || !rawUrl) throw new Error('workspace_id and url are required');\n\n// Normalise: ensure https://\nconst url = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;\n\nreturn [{ json: { workspace_id: wsId, base_url: url, _start_at: Date.now() } }];"
+          "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst wsId  = body.workspace_id;\nconst rawUrl = (body.url || '').trim().replace(/\\/+$/, '');\nif (!wsId || !rawUrl) throw new Error('workspace_id and url are required');\nconst url = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;\nreturn [{ json: { workspace_id: wsId, base_url: url, _start_at: Date.now() } }];"
+        }
+      },
+      {
+        "id": "ing-evstart",
+        "name": "Emit Start Event",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          440,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO build_events (workspace_id, step, status, message, progress)\nVALUES (\n  '{{ $json.workspace_id }}'::uuid,\n  'crawl', 'started', 'Fetching website content from {{ $json.base_url }}', 10\n);\nSELECT\n  '{{ $json.workspace_id }}'::text AS workspace_id,\n  '{{ $json.base_url }}'::text     AS base_url,\n  {{ $json._start_at }}::bigint    AS _start_at",
+          "options": {}
         },
         "onError": "continueErrorOutput"
       },
@@ -384,7 +482,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          440,
+          660,
           0
         ],
         "parameters": {
@@ -397,9 +495,10 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          660,
+          880,
           0
         ],
+        "onError": "continueErrorOutput",
         "parameters": {
           "method": "GET",
           "url": "={{ $json.jina_url }}",
@@ -423,8 +522,7 @@
               }
             }
           }
-        },
-        "onError": "continueErrorOutput"
+        }
       },
       {
         "id": "ing-ext",
@@ -432,13 +530,13 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          880,
+          1100,
           0
         ],
+        "onError": "continueErrorOutput",
         "parameters": {
-          "jsCode": "const item = $input.first().json;\nconst content = $input.first().json.data || $input.first().json.body || '';\nconst wsId = $('Validate Input').first().json.workspace_id;\nconst baseUrl = $('Validate Input').first().json.base_url;\n\n// Chunk the content: ~800 chars with 100 overlap, keeping paragraphs\nfunction chunkText(text, maxLen=800, overlap=100) {\n  const paras = text.split(/\\n\\n+/).filter(p => p.trim().length > 20);\n  const chunks = [];\n  let cur = '';\n  for (const p of paras) {\n    if (cur.length + p.length + 2 > maxLen && cur.length > 0) {\n      chunks.push(cur.trim());\n      // overlap: keep last paragraph\n      cur = cur.split('\\n\\n').slice(-1)[0] + '\\n\\n' + p;\n    } else {\n      cur = cur ? cur + '\\n\\n' + p : p;\n    }\n  }\n  if (cur.trim().length > 0) chunks.push(cur.trim());\n  return chunks;\n}\n\nconst chunks = chunkText(content, 800, 100).slice(0, 20); // cap at 20 chunks per page\nreturn chunks.map((c, i) => ({ json: {\n  workspace_id: wsId,\n  base_url: baseUrl,\n  source_url: baseUrl,\n  chunk_index: i,\n  content: c,\n  total_chunks: chunks.length\n} }));"
-        },
-        "onError": "continueErrorOutput"
+          "jsCode": "const item = $input.first().json;\nconst content = $input.first().json.data || $input.first().json.body || '';\nconst wsId = $('Validate Input').first().json.workspace_id;\nconst baseUrl = $('Validate Input').first().json.base_url;\nfunction chunkText(text, maxLen=800, overlap=100) {\n  const paras = text.split(/\\n\\n+/).filter(p => p.trim().length > 20);\n  const chunks = [];\n  let cur = '';\n  for (const p of paras) {\n    if (cur.length + p.length + 2 > maxLen && cur.length > 0) {\n      chunks.push(cur.trim());\n      cur = cur.split('\\n\\n').slice(-1)[0] + '\\n\\n' + p;\n    } else {\n      cur = cur ? cur + '\\n\\n' + p : p;\n    }\n  }\n  if (cur.trim().length > 0) chunks.push(cur.trim());\n  return chunks;\n}\nconst chunks = chunkText(content, 800, 100).slice(0, 20);\nreturn chunks.map((c, i) => ({ json: {\n  workspace_id: wsId, base_url: baseUrl, source_url: baseUrl,\n  chunk_index: i, content: c, total_chunks: chunks.length\n} }));"
+        }
       },
       {
         "id": "ing-emb",
@@ -446,9 +544,10 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          1100,
+          1320,
           0
         ],
+        "onError": "continueErrorOutput",
         "credentials": {
           "httpQueryAuth": {
             "id": "emzXNUHrKp6cIn1O",
@@ -464,8 +563,7 @@
           "specifyBody": "json",
           "jsonBody": "={{ JSON.stringify({\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":$json.content}]},\"taskType\":\"RETRIEVAL_DOCUMENT\",\"outputDimensionality\":768}) }}",
           "options": {}
-        },
-        "onError": "continueErrorOutput"
+        }
       },
       {
         "id": "ing-femb",
@@ -473,13 +571,13 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1320,
+          1540,
           0
         ],
+        "onError": "continueErrorOutput",
         "parameters": {
-          "jsCode": "const item = $input.first().json;\nconst vals = item.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embed error: no values from Gemini');\nconst vec = '[' + vals.join(',') + ']';\nconst ctx = $('Extract Chunks').first().json;\n// $('Extract Chunks') may reference wrong item in loop; use current item fields\nreturn [{ json: {\n  workspace_id: ctx.workspace_id || item.workspace_id,\n  base_url:     ctx.base_url     || item.base_url,\n  source_url:   ctx.source_url   || item.source_url,\n  chunk_index:  ctx.chunk_index  ?? item.chunk_index ?? 0,\n  content:      ctx.content      || item.content,\n  embedding_str: vec\n} }];"
-        },
-        "onError": "continueErrorOutput"
+          "jsCode": "const item = $input.first().json;\nconst vals = item.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embed error: no values from Gemini');\nconst vec = '[' + vals.join(',') + ']';\nconst ctx = $('Extract Chunks').first().json;\nreturn [{ json: {\n  workspace_id: ctx.workspace_id || item.workspace_id,\n  base_url:     ctx.base_url     || item.base_url,\n  source_url:   ctx.source_url   || item.source_url,\n  chunk_index:  ctx.chunk_index  ?? item.chunk_index ?? 0,\n  content:      ctx.content      || item.content,\n  embedding_str: vec\n} }];"
+        }
       },
       {
         "id": "ing-pg",
@@ -487,7 +585,42 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          1540,
+          1760,
+          0
+        ],
+        "onError": "continueErrorOutput",
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "WITH ins_doc AS (\n  INSERT INTO documents (workspace_id, source_type, title, source_url, content)\n  VALUES ('{{ $json.workspace_id }}'::uuid, 'website',\n    'Website: {{ $json.base_url }}', '{{ $json.source_url }}',\n    '{{ $json.content.substring(0,200).replace(/'/g, \"''\") }}...')\n  ON CONFLICT DO NOTHING RETURNING id\n),\ndoc_id AS (\n  SELECT id FROM ins_doc\n  UNION ALL\n  SELECT id FROM documents\n   WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n     AND source_url = '{{ $json.source_url }}' AND source_type = 'website'\n   LIMIT 1\n)\nINSERT INTO chunks (document_id, workspace_id, chunk_index, content, embedding)\nVALUES ((SELECT id FROM doc_id LIMIT 1), '{{ $json.workspace_id }}'::uuid,\n  {{ $json.chunk_index }}, '{{ $json.content.replace(/'/g, \"''\") }}',\n  '{{ $json.embedding_str }}'::vector)\nON CONFLICT DO NOTHING RETURNING id::text"
+        }
+      },
+      {
+        "id": "ing-done",
+        "name": "Done",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1980,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const wsId = $('Validate Input').first().json.workspace_id;\nconst count = $input.all().length;\nreturn [{ json: { status: 'done', chunks_stored: count, workspace_id: wsId,\n  message: 'Ingestion complete \u2014 ' + count + ' chunks stored.' } }];"
+        }
+      },
+      {
+        "id": "ing-evend",
+        "name": "Emit Complete Event",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          2200,
           0
         ],
         "credentials": {
@@ -498,22 +631,8 @@
         },
         "parameters": {
           "operation": "executeQuery",
-          "query": "WITH ins_doc AS (\n  INSERT INTO documents (workspace_id, source_type, title, source_url, content)\n  VALUES (\n    '{{ $json.workspace_id }}'::uuid,\n    'website',\n    'Website: {{ $json.base_url }}',\n    '{{ $json.source_url }}',\n    '{{ $json.content.substring(0,200).replace(/'/g, \"''\") }}...'\n  )\n  ON CONFLICT DO NOTHING\n  RETURNING id\n),\ndoc_id AS (\n  SELECT id FROM ins_doc\n  UNION ALL\n  SELECT id FROM documents\n   WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n     AND source_url   = '{{ $json.source_url }}'\n     AND source_type  = 'website'\n   LIMIT 1\n)\nINSERT INTO chunks (document_id, workspace_id, chunk_index, content, embedding)\nVALUES (\n  (SELECT id FROM doc_id LIMIT 1),\n  '{{ $json.workspace_id }}'::uuid,\n  {{ $json.chunk_index }},\n  '{{ $json.content.replace(/'/g, \"''\") }}',\n  '{{ $json.embedding_str }}'::vector\n)\nON CONFLICT DO NOTHING\nRETURNING id::text",
+          "query": "INSERT INTO build_events (workspace_id, step, status, message, progress)\nVALUES (\n  '{{ $json.workspace_id }}'::uuid,\n  'ready', 'done',\n  'Knowledge base ready \u2014 {{ $json.chunks_stored }} chunks stored from website.',\n  100\n)\nRETURNING\n  '{{ $json.workspace_id }}'::text AS workspace_id,\n  {{ $json.chunks_stored }}        AS chunks_stored,\n  'done'::text                     AS status",
           "options": {}
-        },
-        "onError": "continueErrorOutput"
-      },
-      {
-        "id": "ing-done",
-        "name": "Done",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1760,
-          0
-        ],
-        "parameters": {
-          "jsCode": "const count = $input.all().length;\nreturn [{ json: { status: 'done', chunks_stored: count, message: 'Ingestion complete.' } }];"
         }
       },
       {
@@ -522,7 +641,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          440,
+          660,
           220
         ],
         "parameters": {
@@ -543,6 +662,24 @@
         ]
       },
       "Validate Input": {
+        "main": [
+          [
+            {
+              "node": "Emit Start Event",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Emit Start Event": {
         "main": [
           [
             {
@@ -655,6 +792,17 @@
           [
             {
               "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Done": {
+        "main": [
+          [
+            {
+              "node": "Emit Complete Event",
               "type": "main",
               "index": 0
             }

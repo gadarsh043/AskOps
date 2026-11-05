@@ -1,0 +1,197 @@
+{
+  "updatedAt": "2026-11-05T17:37:26.146Z",
+  "createdAt": "2026-11-05T17:32:42.546Z",
+  "id": "EzyygDWvJUWrT5jK",
+  "name": "api.build-status",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "api-build-status",
+        "httpMethod": "GET",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "wh1"
+    },
+    {
+      "id": "pg1",
+      "name": "Get Build Events",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(\n                   json_agg(\n                     json_build_object(\n                       'step', e.step,\n                       'status', e.status,\n                       'message', e.message,\n                       'progress', e.progress,\n                       'created_at', TO_CHAR(e.created_at,'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')\n                     ) ORDER BY e.id ASC\n                   ),\n                   '[]'::json\n                 ) AS events\n                 FROM build_events e\n                 WHERE e.workspace_id = '{{ $json.query.workspace_id }}'::uuid",
+        "options": {}
+      }
+    },
+    {
+      "id": "fmt1",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst events = d.events || [];\nreturn [{ json: { events: events, count: events.length } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Build Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Build Events": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "a2bfc2d9-3406-4234-a3af-e9fefb069198",
+  "activeVersionId": "a2bfc2d9-3406-4234-a3af-e9fefb069198",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T17:32:42.548Z",
+      "createdAt": "2026-11-05T17:32:42.548Z",
+      "role": "workflow:owner",
+      "workflowId": "EzyygDWvJUWrT5jK",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T17:37:26.147Z",
+    "createdAt": "2026-11-05T17:37:26.147Z",
+    "versionId": "a2bfc2d9-3406-4234-a3af-e9fefb069198",
+    "workflowId": "EzyygDWvJUWrT5jK",
+    "nodes": [
+      {
+        "id": "wh1",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "path": "api-build-status",
+          "httpMethod": "GET",
+          "responseMode": "lastNode",
+          "options": {
+            "allowedOrigins": "*"
+          }
+        },
+        "webhookId": "wh1"
+      },
+      {
+        "id": "pg1",
+        "name": "Get Build Events",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT COALESCE(\n                   json_agg(\n                     json_build_object(\n                       'step', e.step,\n                       'status', e.status,\n                       'message', e.message,\n                       'progress', e.progress,\n                       'created_at', TO_CHAR(e.created_at,'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')\n                     ) ORDER BY e.id ASC\n                   ),\n                   '[]'::json\n                 ) AS events\n                 FROM build_events e\n                 WHERE e.workspace_id = '{{ $json.query.workspace_id }}'::uuid",
+          "options": {}
+        }
+      },
+      {
+        "id": "fmt1",
+        "name": "Format",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const d = $input.first().json;\nconst events = d.events || [];\nreturn [{ json: { events: events, count: events.length } }];"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Get Build Events",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Build Events": {
+        "main": [
+          [
+            {
+              "node": "Format",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}
