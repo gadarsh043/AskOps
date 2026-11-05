@@ -5,75 +5,106 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AskOps · Company Setup</title>
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
-  header{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 2rem;height:60px;display:flex;align-items:center;gap:.75rem}
-  .logo{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  .logo-sub{color:#64748b;font-size:.85rem}
-  main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:3rem 1rem}
-  .card{background:#fff;border-radius:1rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:2.5rem;width:100%;max-width:680px}
-  .step-label{font-size:.8rem;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
-  h1{font-size:1.6rem;font-weight:700;color:#0f172a;margin-bottom:.4rem}
-  .sub{color:#64748b;font-size:.95rem;margin-bottom:2rem}
-  label{display:block;font-size:.85rem;font-weight:600;color:#374151;margin-bottom:.4rem}
-  .required{color:#ef4444}
-  input[type=text],input[type=url]{width:100%;padding:.7rem 1rem;border:1.5px solid #e2e8f0;border-radius:.5rem;font-size:.95rem;outline:none;transition:border .2s;background:#fff;color:#0f172a}
-  input[type=text]:focus,input[type=url]:focus{border-color:#6366f1}
-  .field{margin-bottom:1.5rem}
-  .upload-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
-  .upload-btn{padding:.5rem 1rem;border:1.5px dashed #cbd5e1;border-radius:.5rem;background:#f8fafc;color:#64748b;font-size:.85rem;cursor:pointer;transition:all .2s}
-  .upload-btn:hover{border-color:#6366f1;color:#6366f1;background:#eef2ff}
-  .sample-btn{padding:.5rem 1rem;border:1.5px solid #e2e8f0;border-radius:.5rem;background:#fff;color:#6366f1;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s}
-  .sample-btn:hover{background:#eef2ff;border-color:#6366f1}
-  .sample-btn.active{background:#eef2ff;border-color:#6366f1;color:#4f46e5}
-  .sample-tag{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .6rem;background:#dcfce7;color:#15803d;border-radius:1rem;font-size:.78rem;font-weight:500}
-  .demo-banner{margin-top:1.5rem;padding:1.2rem 1.5rem;background:linear-gradient(135deg,#eef2ff,#f0fdf4);border:1.5px solid #c7d2fe;border-radius:.75rem;display:flex;align-items:flex-start;gap:.75rem}
-  .demo-banner-icon{font-size:1.4rem;flex-shrink:0}
-  .demo-banner-text{font-size:.9rem;color:#3730a3;font-weight:500}
-  .demo-banner-text span{display:block;color:#4338ca;font-size:.82rem;font-weight:400;margin-top:.2rem}
-  .fill-btn{width:100%;padding:1rem;border:2px dashed #c7d2fe;border-radius:.75rem;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4f46e5;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.5rem;margin:1.5rem 0}
-  .fill-btn:hover{border-color:#6366f1;background:linear-gradient(135deg,#e0e7ff,#ede9fe);transform:translateY(-1px)}
-  .divider{text-align:center;color:#94a3b8;font-size:.85rem;margin:1.5rem 0;position:relative}
-  .divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:#e2e8f0}
+  :root{
+    --bg:#f5f7fa;--surface:#fff;--surface-raised:#eef1f6;
+    --border:rgba(17,24,39,.09);--text-1:#111827;--text-2:#4b5565;--text-3:#6b7487;
+    --accent:#2563eb;--accent-dark:#1d4ed8;--positive:#059669;--danger:#dc2626;
+  }
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;color:var(--text-1)}
+  /* header */
+  header{background:#fff;border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .logo-mark{width:24px;height:24px;flex-shrink:0}
+  .logo-text{font-size:1rem;font-weight:500;color:var(--text-1);letter-spacing:-0.01em}
+  .logo-sep{color:var(--border);margin:0 2px;font-size:.9rem;user-select:none}
+  .logo-sub{color:var(--text-3);font-size:.82rem}
+  /* main */
+  main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 1rem}
+  .card{background:#fff;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04);padding:40px;width:100%;max-width:680px}
+  /* steps */
+  .steps-bar{display:flex;gap:4px;margin-bottom:32px}
+  .step-seg{flex:1;height:3px;border-radius:2px;background:#e5e7eb;transition:background .3s}
+  .step-seg.active{background:var(--accent)}
+  .step-seg.done{background:var(--positive)}
+  /* header copy */
+  .step-label{font-size:.75rem;font-weight:500;color:var(--text-3);margin-bottom:6px}
+  h1{font-size:1.5rem;font-weight:500;color:var(--text-1);margin-bottom:6px;letter-spacing:-0.015em}
+  .sub{color:var(--text-2);font-size:.9rem;line-height:1.6;margin-bottom:28px}
+  /* fill demo button */
+  .fill-btn{width:100%;padding:11px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--text-2);font-size:.875rem;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:border-color 150ms,background 150ms;margin-bottom:4px}
+  .fill-btn:hover{border-color:#93c5fd;background:#eff6ff;color:var(--accent)}
+  /* demo banner */
+  .demo-banner{margin:12px 0 20px;padding:12px 14px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;display:flex;align-items:flex-start;gap:10px}
+  .demo-banner svg{color:var(--accent);flex-shrink:0;margin-top:1px}
+  .demo-banner-text{font-size:.85rem;color:#1e3a5f;font-weight:500}
+  .demo-banner-text span{display:block;color:#1d4ed8;font-size:.8rem;font-weight:400;margin-top:2px}
+  /* divider */
+  .divider{text-align:center;color:var(--text-3);font-size:.8rem;margin:20px 0;position:relative}
+  .divider::before,.divider::after{content:'';position:absolute;top:50%;width:44%;height:1px;background:var(--border)}
   .divider::before{left:0}.divider::after{right:0}
-  .btn-primary{width:100%;padding:.9rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s}
-  .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.35)}
-  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
-  .file-name{font-size:.8rem;color:#64748b;margin-top:.3rem}
+  /* form */
+  .field{margin-bottom:20px}
+  label{display:block;font-size:.825rem;font-weight:500;color:var(--text-2);margin-bottom:6px}
+  .label-opt{color:var(--text-3);font-weight:400}
+  .required{color:var(--danger)}
+  input[type=text],input[type=url]{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.875rem;font-family:inherit;outline:none;transition:border-color 150ms;background:#fff;color:var(--text-1)}
+  input[type=text]:focus,input[type=url]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+  .upload-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .upload-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text-2);font-size:.82rem;font-weight:500;font-family:inherit;cursor:pointer;transition:border-color 150ms,color 150ms}
+  .upload-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .sample-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text-2);font-size:.82rem;font-weight:500;font-family:inherit;cursor:pointer;transition:all 150ms}
+  .sample-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .sample-btn.active{background:#eff6ff;border-color:var(--accent);color:var(--accent)}
+  .sample-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;background:#f0fdf4;color:#166534;border-radius:6px;font-size:.78rem;font-weight:500;border:1px solid #bbf7d0}
+  .file-name{font-size:.78rem;color:var(--text-3);margin-top:6px}
   .hidden-input{display:none}
-  .steps-bar{display:flex;gap:.5rem;margin-bottom:2rem}
-  .step-dot{flex:1;height:4px;border-radius:2px;background:#e2e8f0}
-  .step-dot.active{background:linear-gradient(90deg,#6366f1,#8b5cf6)}
-  .step-dot.done{background:#10b981}
+  .data-warning{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:.78rem;color:var(--danger);opacity:.8}
+  /* primary button */
+  .btn-primary{width:100%;padding:11px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:.9rem;font-weight:500;font-family:inherit;cursor:pointer;transition:background 150ms;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
+  .btn-primary:hover:not(:disabled){background:var(--accent-dark)}
+  .btn-primary:active{transform:scale(0.99)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  /* icon helper */
+  svg.ic{width:16px;height:16px;display:inline-block;vertical-align:middle;flex-shrink:0}
+  svg.ic-18{width:18px;height:18px}
 </style>
 </head>
 <body>
 <header>
-  <span style="font-size:1.3rem">⚡</span>
-  <span class="logo">AskOps</span>
-  <span class="logo-sub">AI-Powered IT & HR Service Desk</span>
+  <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M2 3.5A1.5 1.5 0 013.5 2h17A1.5 1.5 0 0122 3.5v11A1.5 1.5 0 0120.5 16H9l-7 5V3.5z" fill="#3b82f6"/>
+    <path d="M7 9.5l3 3 7-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="logo-text">AskOps</span>
+  <span class="logo-sep">/</span>
+  <span class="logo-sub">IT & HR Service Desk</span>
 </header>
+
 <main>
   <div class="card">
     <div class="steps-bar">
-      <div class="step-dot active"></div>
-      <div class="step-dot"></div>
-      <div class="step-dot"></div>
+      <div class="step-seg active"></div>
+      <div class="step-seg"></div>
+      <div class="step-seg"></div>
     </div>
+
     <div class="step-label">Step 1 of 3</div>
-    <h1>Company Setup</h1>
-    <p class="sub">Connect your company's knowledge base. We'll automatically build an AI agent trained on your content.</p>
+    <h1>Company setup</h1>
+    <p class="sub">Connect your company's knowledge base. We'll scrape your website and build an AI agent trained on your content.</p>
 
     <button class="fill-btn" onclick="fillDemo()">
-      ✨ Fill everything with demo data
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19.2 13.2M17.8 6.2L19.2 4.8M12.2 6.2L10.8 4.8M12.2 11.8L10.8 13.2"/><path d="M3 21l9-9"/></svg>
+      Fill with demo data
     </button>
 
     <div id="demo-banner" class="demo-banner" style="display:none">
-      <span class="demo-banner-icon">🏢</span>
+      <svg class="ic ic-18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22V12h6v10"/><circle cx="8" cy="6" r=".5" fill="currentColor"/><circle cx="16" cy="6" r=".5" fill="currentColor"/><circle cx="12" cy="6" r=".5" fill="currentColor"/><circle cx="8" cy="10" r=".5" fill="currentColor"/><circle cx="16" cy="10" r=".5" fill="currentColor"/><circle cx="12" cy="10" r=".5" fill="currentColor"/></svg>
       <div class="demo-banner-text">
         Using Northwind Labs demo dataset
-        <span>Pre-loaded with sample policies, employee data, and knowledge base. Perfect for exploring AskOps.</span>
+        <span>Pre-loaded with sample policies, employee data, and knowledge base.</span>
       </div>
     </div>
 
@@ -81,19 +112,22 @@
 
     <form id="setup-form" onsubmit="handleSubmit(event)">
       <div class="field">
-        <label>Company Website URL <span class="required">*</span></label>
+        <label>Company website URL <span class="required">*</span></label>
         <input type="url" id="website-url" placeholder="https://yourcompany.com" autocomplete="off">
       </div>
 
       <div class="field">
-        <label>Extra URL <span style="color:#94a3b8;font-weight:400">(careers / benefits page, optional)</span></label>
+        <label>Extra URL <span class="label-opt">(careers or benefits page, optional)</span></label>
         <input type="url" id="extra-url" placeholder="https://yourcompany.com/careers">
       </div>
 
       <div class="field">
-        <label>Policy Documents <span style="color:#94a3b8;font-weight:400">(PDF / TXT, optional)</span></label>
+        <label>Policy documents <span class="label-opt">(PDF or TXT, optional)</span></label>
         <div class="upload-row">
-          <button type="button" class="upload-btn" onclick="document.getElementById('policy-files').click()">📄 Choose Files</button>
+          <button type="button" class="upload-btn" onclick="document.getElementById('policy-files').click()">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Choose files
+          </button>
           <button type="button" class="sample-btn" id="sample-policy-btn" onclick="toggleSample('policy')">Use sample policies</button>
           <input class="hidden-input" type="file" id="policy-files" multiple accept=".pdf,.txt,.md" onchange="showFiles('policy-files','policy-filenames')">
         </div>
@@ -101,17 +135,26 @@
       </div>
 
       <div class="field">
-        <label>Employee Data <span style="color:#94a3b8;font-weight:400">(CSV, optional)</span></label>
+        <label>Employee data <span class="label-opt">(CSV, optional)</span></label>
         <div class="upload-row">
-          <button type="button" class="upload-btn" onclick="document.getElementById('csv-file').click()">📊 Choose File</button>
+          <button type="button" class="upload-btn" onclick="document.getElementById('csv-file').click()">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+            Choose file
+          </button>
           <button type="button" class="sample-btn" id="sample-csv-btn" onclick="toggleSample('csv')">Use sample employees</button>
           <input class="hidden-input" type="file" id="csv-file" accept=".csv" onchange="showFiles('csv-file','csv-filename')">
         </div>
         <div id="csv-filename" class="file-name"></div>
-        <div style="margin-top:.5rem;font-size:.78rem;color:#ef4444">⚠️ Do not upload real employee data for demos.</div>
+        <div class="data-warning">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Do not upload real employee data for demos.
+        </div>
       </div>
 
-      <button type="submit" class="btn-primary" id="continue-btn">Continue →</button>
+      <button type="submit" class="btn-primary" id="continue-btn">
+        Continue
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
     </form>
   </div>
 </main>
@@ -128,8 +171,8 @@ function fillDemo() {
   sampleCsv = true;
   document.getElementById('sample-policy-btn').classList.add('active');
   document.getElementById('sample-csv-btn').classList.add('active');
-  document.getElementById('policy-filenames').innerHTML = '<span class="sample-tag">✓ Sample policies loaded</span>';
-  document.getElementById('csv-filename').innerHTML = '<span class="sample-tag">✓ Sample employees loaded</span>';
+  document.getElementById('policy-filenames').innerHTML = '<span class="sample-tag">Sample policies loaded</span>';
+  document.getElementById('csv-filename').innerHTML = '<span class="sample-tag">Sample employees loaded</span>';
   document.getElementById('demo-banner').style.display = 'flex';
   localStorage.setItem('askops_demo_mode', 'true');
   localStorage.setItem('askops_workspace_id', window.DEMO_WORKSPACE_ID);
@@ -140,12 +183,12 @@ function toggleSample(type) {
     samplePolicy = !samplePolicy;
     const btn = document.getElementById('sample-policy-btn');
     btn.classList.toggle('active', samplePolicy);
-    document.getElementById('policy-filenames').innerHTML = samplePolicy ? '<span class="sample-tag">✓ Sample policies selected</span>' : '';
+    document.getElementById('policy-filenames').innerHTML = samplePolicy ? '<span class="sample-tag">Sample policies selected</span>' : '';
   } else {
     sampleCsv = !sampleCsv;
     const btn = document.getElementById('sample-csv-btn');
     btn.classList.toggle('active', sampleCsv);
-    document.getElementById('csv-filename').innerHTML = sampleCsv ? '<span class="sample-tag">✓ Sample employees selected</span>' : '';
+    document.getElementById('csv-filename').innerHTML = sampleCsv ? '<span class="sample-tag">Sample employees selected</span>' : '';
   }
 }
 
@@ -153,7 +196,7 @@ function showFiles(inputId, labelId) {
   const files = document.getElementById(inputId).files;
   if (files.length) {
     const names = Array.from(files).map(f => f.name).join(', ');
-    document.getElementById(labelId).textContent = '📎 ' + names;
+    document.getElementById(labelId).textContent = names;
   }
 }
 
@@ -169,7 +212,7 @@ async function handleSubmit(e) {
 
   if (!url) {
     document.getElementById('website-url').focus();
-    document.getElementById('website-url').style.borderColor = '#ef4444';
+    document.getElementById('website-url').style.borderColor = '#dc2626';
     return;
   }
 
@@ -195,7 +238,7 @@ async function handleSubmit(e) {
     window.location.href = 'persona.html';
   } catch (err) {
     btn.disabled = false;
-    btn.textContent = 'Continue →';
+    btn.textContent = 'Continue';
     alert('Could not connect to backend. Try the demo mode instead.');
   }
 }

@@ -5,109 +5,153 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AskOps · Workspace</title>
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f8fafc;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-  /* ── Header ── */
-  header{background:#1e293b;border-bottom:1px solid #334155;padding:0 1.25rem;height:52px;display:flex;align-items:center;gap:.75rem;flex-shrink:0}
-  .logo{font-size:1.1rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  .header-right{margin-left:auto;display:flex;align-items:center;gap.75rem}
-  .persona-pill{display:flex;align-items:center;gap:.5rem;padding:.3rem .75rem;background:#0f172a;border:1px solid #334155;border-radius:2rem;font-size:.82rem;cursor:pointer;transition:all .2s;user-select:none}
-  .persona-pill:hover{border-color:#6366f1}
-  .role-badge{padding:.15rem .5rem;border-radius:1rem;font-size:.7rem;font-weight:600;text-transform:uppercase}
+  :root{
+    --bg:#0d0f14;--surface:#131720;--surface-2:#191e2b;--surface-3:#1e2435;
+    --border:rgba(238,240,245,.07);--text-1:#eef0f5;--text-2:#a3a9b8;--text-3:#6b7487;
+    --accent:#3b82f6;--positive:#34d399;--denied:#c084fc;--danger:#f87171;
+  }
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text-1);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  /* ── header ── */
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:52px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .logo-mark{width:22px;height:22px;flex-shrink:0}
+  .logo-text{font-size:.95rem;font-weight:500;color:var(--text-1);letter-spacing:-0.01em}
+  .header-sep{color:var(--border);margin:0 2px;font-size:.85rem;user-select:none}
+  .header-company{color:var(--text-3);font-size:.82rem}
+  .header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .header-link{color:var(--text-3);font-size:.8rem;text-decoration:none;padding:4px 8px;border-radius:6px;border:1px solid transparent;display:flex;align-items:center;gap:5px;transition:color 150ms,border-color 150ms}
+  .header-link:hover{color:var(--text-1);border-color:var(--border)}
+  .header-link svg{width:14px;height:14px}
+  .persona-pill{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:20px;font-size:.8rem;cursor:pointer;transition:border-color 150ms;user-select:none}
+  .persona-pill:hover{border-color:var(--accent)}
+  .persona-pill svg{width:14px;height:14px;color:var(--text-3)}
+  .persona-name-label{color:var(--text-2)}
+  .role-badge{padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:500}
   .role-employee{background:#1e3a5f;color:#60a5fa}
-  .role-hr{background:#4a1d3f;color:#f472b6}
-  .header-link{color:#94a3b8;font-size:.82rem;text-decoration:none;padding:.3rem .6rem;border-radius:.4rem;transition:color .15s}
-  .header-link:hover{color:#f8fafc}
-  /* ── Layout ── */
+  .role-hr{background:#2d1f08;color:#f59e0b}
+
+  /* ── layout ── */
   .workspace{flex:1;display:flex;overflow:hidden}
-  /* ── Sidebar ── */
-  aside{width:200px;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
-  .sidebar-section{padding:.75rem 1rem;border-bottom:1px solid #334155}
-  .sidebar-label{font-size:.7rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
-  .persona-btn{width:100%;padding:.5rem .75rem;border-radius:.5rem;border:none;cursor:pointer;font-size:.82rem;font-weight:500;text-align:left;transition:all .15s;display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem}
-  .persona-btn.active{background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(139,92,246,.25));color:#a5b4fc;border:1px solid rgba(99,102,241,.3)}
-  .persona-btn:not(.active){background:transparent;color:#94a3b8;border:1px solid transparent}
-  .persona-btn:not(.active):hover{background:#0f172a;color:#f8fafc}
-  .metric-row{display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;font-size:.82rem}
-  .metric-name{color:#94a3b8}
-  .metric-val{color:#f8fafc;font-weight:600;font-variant-numeric:tabular-nums}
-  .metric-val.green{color:#34d399}
-  .metric-val.blue{color:#60a5fa}
-  .metric-val.purple{color:#a78bfa}
-  .sidebar-footer{margin-top:auto;padding:.75rem 1rem}
-  /* ── Chat panel ── */
+
+  /* ── sidebar ── */
+  aside{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+  .sidebar-section{padding:12px 12px;border-bottom:1px solid var(--border)}
+  .sidebar-label{font-size:.7rem;font-weight:500;color:var(--text-3);margin-bottom:8px}
+  .persona-btn{width:100%;padding:7px 10px;border-radius:7px;border:1px solid transparent;cursor:pointer;font-size:.8rem;font-weight:400;font-family:inherit;text-align:left;transition:all 150ms;display:flex;align-items:center;gap:7px;margin-bottom:3px;color:var(--text-2);background:transparent}
+  .persona-btn svg{width:15px;height:15px;flex-shrink:0;color:var(--text-3)}
+  .persona-btn.active{background:var(--surface-2);color:var(--text-1);border-color:var(--border)}
+  .persona-btn.active svg{color:var(--accent)}
+  .persona-btn:not(.active):hover{background:var(--surface-2);color:var(--text-1)}
+  /* metrics */
+  .metric-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:.78rem}
+  .metric-name{color:var(--text-3)}
+  .metric-val{color:var(--text-1);font-weight:500;font-family:'JetBrains Mono',monospace;font-size:.75rem}
+  .metric-val.green{color:var(--positive)}
+  .metric-val.blue{color:var(--accent)}
+  .sidebar-footer{margin-top:auto;padding:12px}
+  .sidebar-note{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--text-3);line-height:1.5}
+  .sidebar-note svg{flex-shrink:0;color:var(--text-3);width:13px;height:13px}
+
+  /* ── chat panel ── */
   .chat-panel{flex:1;display:flex;flex-direction:column;min-width:0}
-  .chat-tabs{display:flex;border-bottom:1px solid #334155;background:#1e293b;flex-shrink:0}
-  .chat-tab{padding:.6rem 1.25rem;font-size:.85rem;font-weight:500;cursor:pointer;color:#94a3b8;border-bottom:2px solid transparent;transition:all .15s;user-select:none}
-  .chat-tab.active{color:#a5b4fc;border-bottom-color:#6366f1}
-  .chat-tab:hover:not(.active){color:#f8fafc}
+  .chat-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+  .chat-tab{padding:10px 16px;font-size:.82rem;font-weight:400;cursor:pointer;color:var(--text-3);border-bottom:2px solid transparent;transition:all 150ms;user-select:none;display:flex;align-items:center;gap:6px}
+  .chat-tab svg{width:14px;height:14px}
+  .chat-tab.active{color:var(--text-1);border-bottom-color:var(--accent)}
+  .chat-tab:hover:not(.active){color:var(--text-2)}
   .chat-content{flex:1;overflow:hidden;position:relative}
   .tab-pane{position:absolute;inset:0;display:none;flex-direction:column}
   .tab-pane.active{display:flex}
-  /* ── Demo Chat ── */
-  .messages{flex:1;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:.75rem}
-  .msg{max-width:80%;animation:msgIn .2s ease}
-  @keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ── demo chat ── */
+  .messages{flex:1;overflow-y:auto;padding:20px 20px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:82%;animation:msgIn .2s ease}
+  @keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
   .msg.user{align-self:flex-end}
   .msg.bot{align-self:flex-start}
-  .bubble{padding:.75rem 1rem;border-radius:.875rem;font-size:.88rem;line-height:1.5;white-space:pre-wrap}
-  .msg.user .bubble{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-bottom-right-radius:.25rem}
-  .msg.bot .bubble{background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-bottom-left-radius:.25rem}
-  .msg.bot .bubble.thinking{color:#94a3b8;font-style:italic}
-  .source-tag{display:inline-block;margin-top:.4rem;font-size:.72rem;padding:.15rem .5rem;background:#0f172a;border:1px solid #334155;border-radius:1rem;color:#64748b}
-  .suggestions{display:flex;flex-wrap:wrap;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid #334155;background:#1a2234;flex-shrink:0}
-  .sug{padding:.35rem .75rem;background:#0f172a;border:1px solid #334155;border-radius:1.5rem;font-size:.78rem;color:#94a3b8;cursor:pointer;transition:all .15s}
-  .sug:hover{border-color:#6366f1;color:#a5b4fc}
-  .chat-input-row{display:flex;gap:.5rem;padding:.75rem 1.25rem;border-top:1px solid #334155;background:#1a2234;flex-shrink:0}
-  .chat-input{flex:1;padding:.6rem .9rem;background:#0f172a;border:1.5px solid #334155;border-radius:.6rem;color:#f8fafc;font-size:.9rem;outline:none;transition:border .15s}
-  .chat-input:focus{border-color:#6366f1}
-  .send-btn{padding:.6rem 1.1rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.6rem;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
-  .send-btn:hover{transform:translateY(-1px)}
-  .send-btn:disabled{opacity:.5;cursor:not-allowed}
-  /* ── Copilot tab ── */
-  .copilot-pane{padding:2rem;overflow-y:auto;display:flex;flex-direction:column;align-items:center}
-  .copilot-iframe-wrap{width:100%;max-width:500px;height:500px;background:#1e293b;border:2px dashed #334155;border-radius:.75rem;display:flex;align-items:center;justify-content:center;margin-bottom:1.5rem}
-  .copilot-iframe-wrap iframe{width:100%;height:100%;border:none;border-radius:.75rem}
-  .copilot-setup{background:#1e293b;border:1px solid #334155;border-radius:.75rem;padding:1.5rem;max-width:500px;width:100%}
-  .copilot-setup h3{color:#a5b4fc;font-size:1rem;margin-bottom:.75rem}
-  .step-item{display:flex;gap:.6rem;margin-bottom:.6rem;font-size:.85rem;color:#94a3b8;line-height:1.4}
-  .step-num{background:#0f172a;border:1px solid #334155;border-radius:50%;width:1.3rem;height:1.3rem;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#a5b4fc;flex-shrink:0;margin-top:.1rem}
-  .copilot-url-row{display:flex;gap:.5rem;margin-top:1rem}
-  .copilot-url-input{flex:1;padding:.5rem .75rem;background:#0f172a;border:1px solid #334155;border-radius:.5rem;color:#f8fafc;font-size:.82rem;outline:none}
-  .copilot-url-input:focus{border-color:#6366f1}
-  .copilot-save-btn{padding:.5rem 1rem;background:#6366f1;border:none;border-radius:.5rem;color:#fff;font-size:.82rem;cursor:pointer}
-  /* ── Trace panel ── */
-  .trace-panel{width:260px;background:#1e293b;border-left:1px solid #334155;display:flex;flex-direction:column;flex-shrink:0}
-  .trace-header{padding:.75rem 1rem;border-bottom:1px solid #334155;font-size:.82rem;font-weight:600;color:#a5b4fc;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-  .live-dot{width:6px;height:6px;background:#34d399;border-radius:50%;animation:pulse 1.5s ease infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-  .trace-list{flex:1;overflow-y:auto;padding:.5rem}
-  .trace-item{padding:.6rem .75rem;border-radius:.5rem;margin-bottom:.35rem;border:1px solid #334155;background:#0f172a;animation:fadeIn .3s ease}
-  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-  .trace-tool{font-size:.8rem;font-weight:600;color:#e2e8f0;display:flex;align-items:center;gap:.35rem}
-  .trace-status{font-size:.72rem;margin-top:.2rem;display:flex;align-items:center;gap:.35rem}
-  .status-success{color:#34d399}
-  .status-denied{color:#f472b6}
-  .status-error{color:#fb7185}
-  .trace-latency{color:#94a3b8;font-size:.7rem}
-  .trace-empty{color:#475569;font-size:.82rem;text-align:center;padding:2rem 1rem;line-height:1.5}
+  .bubble{padding:10px 14px;border-radius:12px;font-size:.85rem;line-height:1.6;white-space:pre-wrap}
+  .msg.user .bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+  .msg.bot .bubble{background:var(--surface-2);color:var(--text-1);border:1px solid var(--border);border-bottom-left-radius:4px}
+  .msg.bot .bubble.thinking{color:var(--text-3);font-style:normal}
+  .source-tag{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:.72rem;padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text-3)}
+  .source-tag svg{width:12px;height:12px}
+  .suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+  .sug{padding:5px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:16px;font-size:.78rem;color:var(--text-2);cursor:pointer;transition:all 150ms;font-family:inherit}
+  .sug:hover{border-color:var(--accent);color:var(--text-1)}
+  .chat-input-row{display:flex;gap:8px;padding:12px 20px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+  .chat-input{flex:1;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text-1);font-size:.875rem;font-family:inherit;outline:none;transition:border-color 150ms}
+  .chat-input:focus{border-color:var(--accent)}
+  .send-btn{padding:9px 14px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:.82rem;font-weight:500;font-family:inherit;cursor:pointer;transition:background 150ms;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0}
+  .send-btn:hover{background:#2563eb}
+  .send-btn:active{transform:scale(0.98)}
+  .send-btn:disabled{opacity:.45;cursor:not-allowed}
+  .send-btn svg{width:14px;height:14px}
+
+  /* ── copilot tab ── */
+  .copilot-pane{padding:24px;overflow-y:auto;display:flex;flex-direction:column;align-items:center}
+  .copilot-iframe-wrap{width:100%;max-width:500px;height:500px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+  .copilot-iframe-wrap iframe{width:100%;height:100%;border:none;border-radius:10px}
+  .copilot-setup{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:20px;max-width:500px;width:100%}
+  .copilot-setup h3{color:var(--text-1);font-size:.95rem;font-weight:500;margin-bottom:12px}
+  .step-item{display:flex;gap:8px;margin-bottom:8px;font-size:.82rem;color:var(--text-2);line-height:1.5}
+  .step-num{background:var(--bg);border:1px solid var(--border);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:500;color:var(--accent);flex-shrink:0;margin-top:1px}
+  .copilot-url-row{display:flex;gap:6px;margin-top:12px}
+  .copilot-url-input{flex:1;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text-1);font-size:.82rem;font-family:inherit;outline:none}
+  .copilot-url-input:focus{border-color:var(--accent)}
+  .copilot-save-btn{padding:7px 12px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:.82rem;font-family:inherit;cursor:pointer;transition:background 150ms}
+  .copilot-save-btn:hover{background:#2563eb}
+
+  /* ── trace panel ── */
+  .trace-panel{width:260px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+  .trace-header{padding:11px 14px;border-bottom:1px solid var(--border);font-size:.8rem;font-weight:500;color:var(--text-2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:6px}
+  .trace-header-left{display:flex;align-items:center;gap:7px}
+  .trace-header svg{width:15px;height:15px;color:var(--text-3)}
+  .live-dot{width:6px;height:6px;background:var(--positive);border-radius:50%;animation:livepulse 2s ease infinite;flex-shrink:0}
+  @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .trace-list{flex:1;overflow-y:auto;padding:8px}
+  .trace-item{padding:9px 10px;border-radius:7px;margin-bottom:4px;border:1px solid var(--border);background:var(--surface-2);animation:traceIn .25s ease}
+  @keyframes traceIn{from{opacity:0}to{opacity:1}}
+  .trace-tool{font-size:.78rem;font-weight:500;color:var(--text-1);display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace}
+  .trace-tool svg{width:13px;height:13px;color:var(--text-3);flex-shrink:0}
+  .trace-status{font-size:.72rem;margin-top:4px;display:flex;align-items:center;gap:5px}
+  .trace-status-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  .status-success .trace-status-dot{background:var(--positive)}
+  .status-denied .trace-status-dot{background:var(--denied)}
+  .status-error .trace-status-dot{background:var(--danger)}
+  .status-success{color:var(--positive)}
+  .status-denied{color:var(--denied)}
+  .status-error{color:var(--danger)}
+  .trace-latency{color:var(--text-3);font-size:.7rem;font-family:'JetBrains Mono',monospace}
+  .trace-empty{color:var(--text-3);font-size:.78rem;text-align:center;padding:32px 12px;line-height:1.6}
 </style>
 </head>
 <body>
 <header>
-  <span style="font-size:1.1rem">⚡</span>
-  <span class="logo">AskOps</span>
-  <span style="color:#334155;margin:0 .25rem">|</span>
-  <span style="color:#64748b;font-size:.82rem" id="header-company">Northwind Labs</span>
-  <div class="header-right" style="margin-left:auto;display:flex;align-items:center;gap:.75rem">
-    <a href="dashboard.html" class="header-link">📊 Dashboard</a>
-    <a href="setup.html" class="header-link" onclick="localStorage.clear()">↩ Reset</a>
+  <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M2 3.5A1.5 1.5 0 013.5 2h17A1.5 1.5 0 0122 3.5v11A1.5 1.5 0 0120.5 16H9l-7 5V3.5z" fill="#3b82f6"/>
+    <path d="M7 9.5l3 3 7-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="logo-text">AskOps</span>
+  <span class="header-sep">/</span>
+  <span class="header-company" id="header-company">Northwind Labs</span>
+  <div class="header-right">
+    <a href="dashboard.html" class="header-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Dashboard
+    </a>
+    <a href="setup.html" class="header-link" onclick="localStorage.clear()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+      Reset
+    </a>
     <div class="persona-pill" onclick="togglePersonaDropdown()" id="persona-pill">
-      <span id="persona-emoji">👨‍💻</span>
-      <span id="persona-name-label">Adarsh Gella</span>
+      <svg id="persona-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span class="persona-name-label" id="persona-name-label">Adarsh Gella</span>
       <span class="role-badge role-employee" id="role-badge">Employee</span>
-      <span style="color:#475569">▾</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;color:var(--text-3)" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   </div>
 </header>
@@ -116,34 +160,49 @@
   <!-- Sidebar -->
   <aside>
     <div class="sidebar-section">
-      <div class="sidebar-label">Switch Persona</div>
+      <div class="sidebar-label">Switch persona</div>
       <button class="persona-btn" id="btn-adarsh" onclick="switchPersona('EMP-042','adarsh')">
-        👨‍💻 Adarsh (EE)
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Adarsh (employee)
       </button>
       <button class="persona-btn" id="btn-john" onclick="switchPersona('EMP-007','john')">
-        👔 John Lee (HR)
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+        John Lee (HR)
       </button>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Live Metrics</div>
+      <div class="sidebar-label">Live metrics</div>
       <div class="metric-row"><span class="metric-name">CSAT</span><span class="metric-val green" id="m-csat">—</span></div>
       <div class="metric-row"><span class="metric-name">Accuracy</span><span class="metric-val blue" id="m-acc">—</span></div>
-      <div class="metric-row"><span class="metric-name">Tasks Auto</span><span class="metric-val purple" id="m-tasks">—</span></div>
-      <div class="metric-row"><span class="metric-name">Tool Calls</span><span class="metric-val" id="m-tools">—</span></div>
-      <div class="metric-row"><span class="metric-name">KB Chunks</span><span class="metric-val" id="m-chunks">—</span></div>
+      <div class="metric-row"><span class="metric-name">Tasks auto</span><span class="metric-val" id="m-tasks">—</span></div>
+      <div class="metric-row"><span class="metric-name">Tool calls</span><span class="metric-val" id="m-tools">—</span></div>
+      <div class="metric-row"><span class="metric-name">KB chunks</span><span class="metric-val" id="m-chunks">—</span></div>
     </div>
     <div class="sidebar-section" style="flex:1">
-      <div class="sidebar-label">Quick Actions</div>
-      <div style="display:flex;flex-direction:column;gap:.35rem">
-        <button class="persona-btn" onclick="sendMsg('What is my PTO balance?')">🏖️ PTO Balance</button>
-        <button class="persona-btn" onclick="sendMsg('Show my open tickets')">🎫 My Tickets</button>
-        <button class="persona-btn" onclick="sendMsg('What is our remote work policy?')">🌐 Remote Policy</button>
-        <button class="persona-btn" onclick="sendMsg('What are our expense guidelines?')">💳 Expenses</button>
+      <div class="sidebar-label">Quick actions</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <button class="persona-btn" onclick="sendMsg('What is my PTO balance?')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          PTO balance
+        </button>
+        <button class="persona-btn" onclick="sendMsg('Show my open tickets')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 010 6v2a2 2 0 002 2h16a2 2 0 002-2v-2a3 3 0 010-6V7a2 2 0 00-2-2H4a2 2 0 00-2 2z"/></svg>
+          My tickets
+        </button>
+        <button class="persona-btn" onclick="sendMsg('What is our remote work policy?')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          Remote policy
+        </button>
+        <button class="persona-btn" onclick="sendMsg('What are our expense guidelines?')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Expenses
+        </button>
       </div>
     </div>
     <div class="sidebar-footer">
-      <div style="font-size:.72rem;color:#475569;line-height:1.5">
-        🔒 Access enforced by DB<br>Denials logged for audit
+      <div class="sidebar-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        Access enforced by DB. Denials logged for audit.
       </div>
     </div>
   </aside>
@@ -151,15 +210,21 @@
   <!-- Chat Panel -->
   <div class="chat-panel">
     <div class="chat-tabs">
-      <div class="chat-tab active" onclick="switchTab('demo')" id="tab-demo">🤖 Demo Chat</div>
-      <div class="chat-tab" onclick="switchTab('copilot')" id="tab-copilot">🔗 Copilot Studio</div>
+      <div class="chat-tab active" onclick="switchTab('demo')" id="tab-demo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Demo Chat
+      </div>
+      <div class="chat-tab" onclick="switchTab('copilot')" id="tab-copilot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Copilot Studio
+      </div>
     </div>
     <div class="chat-content">
       <!-- Demo Chat -->
       <div class="tab-pane active" id="pane-demo">
         <div class="messages" id="messages">
           <div class="msg bot">
-            <div class="bubble">👋 Hi! I'm your AskOps assistant. I can answer HR and IT questions, help you request PTO, check ticket status, and more.
+            <div class="bubble">Hi! I'm your AskOps assistant. I can answer HR and IT questions, help you request PTO, check ticket status, and more.
 
 Try asking me something, or use the quick actions in the sidebar.</div>
           </div>
@@ -172,14 +237,17 @@ Try asking me something, or use the quick actions in the sidebar.</div>
         </div>
         <div class="chat-input-row">
           <input class="chat-input" id="chat-input" placeholder="Ask anything about HR, IT, PTO…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleSend()}">
-          <button class="send-btn" id="send-btn" onclick="handleSend()">Send ↑</button>
+          <button class="send-btn" id="send-btn" onclick="handleSend()">
+            Send
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
         </div>
       </div>
 
       <!-- Copilot Studio -->
-      <div class="tab-pane" id="pane-copilot" style="overflow-y:auto;padding:1.5rem;align-items:center">
-        <div id="copilot-iframe-container" style="width:100%;max-width:520px;height:520px;display:none;margin-bottom:1rem">
-          <iframe id="copilot-iframe" src="" allow="microphone" style="width:100%;height:100%;border:none;border-radius:.75rem"></iframe>
+      <div class="tab-pane" id="pane-copilot" style="overflow-y:auto;padding:24px;align-items:center">
+        <div id="copilot-iframe-container" style="width:100%;max-width:520px;height:520px;display:none;margin-bottom:12px">
+          <iframe id="copilot-iframe" src="" allow="microphone" style="width:100%;height:100%;border:none;border-radius:10px"></iframe>
         </div>
         <div class="copilot-setup" id="copilot-setup-card">
           <h3>Connect Copilot Studio</h3>
@@ -200,11 +268,14 @@ Try asking me something, or use the quick actions in the sidebar.</div>
   <!-- Trace Panel -->
   <div class="trace-panel">
     <div class="trace-header">
-      🔍 Behind the Scenes
+      <div class="trace-header-left">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Behind the scenes
+      </div>
       <div class="live-dot" title="Live polling"></div>
     </div>
     <div class="trace-list" id="trace-list">
-      <div class="trace-empty">Tool calls will appear here as you chat. Each entry shows the tool name, status, and latency.</div>
+      <div class="trace-empty">Tool calls appear here as you chat. Each entry shows the tool name, status, and latency.</div>
     </div>
   </div>
 </div>
@@ -217,7 +288,6 @@ const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_W
 let currentPersona = localStorage.getItem('askops_persona') || 'EMP-042';
 function applyPersonaUI() {
   const isHR = currentPersona === 'EMP-007';
-  document.getElementById('persona-emoji').textContent = isHR ? '👔' : '👨‍💻';
   document.getElementById('persona-name-label').textContent = isHR ? 'John Lee' : 'Adarsh Gella';
   const badge = document.getElementById('role-badge');
   badge.textContent = isHR ? 'HR' : 'Employee';
@@ -229,7 +299,7 @@ async function switchPersona(code, key) {
   currentPersona = code;
   localStorage.setItem('askops_persona', code);
   applyPersonaUI();
-  addBotMsg(`🔄 Switched to ${key === 'adarsh' ? 'Adarsh Gella (Employee)' : 'John Lee (HR Manager)'}. Your permissions have changed.`);
+  addBotMsg(`Switched to ${key === 'adarsh' ? 'Adarsh Gella (Employee)' : 'John Lee (HR Manager)'}. Your permissions have changed.`);
   try {
     await fetch(API + '/webhook/api-set-persona', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({workspace_id:workspaceId, employee_code:code})});
   } catch(e) {}
@@ -259,7 +329,7 @@ function saveCopilotUrl() {
 function loadCopilotIframe(url) {
   document.getElementById('copilot-iframe').src = url;
   document.getElementById('copilot-iframe-container').style.display = 'block';
-  document.getElementById('copilot-setup-card').style.marginTop = '1rem';
+  document.getElementById('copilot-setup-card').style.marginTop = '12px';
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
@@ -270,7 +340,8 @@ const sendBtn = document.getElementById('send-btn');
 function addBotMsg(text, sourceTag) {
   const div = document.createElement('div');
   div.className = 'msg bot';
-  div.innerHTML = `<div class="bubble">${escHtml(text)}${sourceTag ? `<br><span class="source-tag">📚 ${escHtml(sourceTag)}</span>` : ''}</div>`;
+  const sourceHtml = sourceTag ? `<br><span class="source-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>${escHtml(sourceTag)}</span>` : '';
+  div.innerHTML = `<div class="bubble">${escHtml(text)}${sourceHtml}</div>`;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
@@ -285,7 +356,7 @@ function addUserMsg(text) {
 function addThinkingMsg() {
   const div = document.createElement('div');
   div.className = 'msg bot';
-  div.innerHTML = `<div class="bubble thinking">⟳ Thinking…</div>`;
+  div.innerHTML = `<div class="bubble thinking">Thinking…</div>`;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
@@ -312,18 +383,18 @@ async function callTool(path, body) {
 }
 
 function formatToolResponse(intent, data) {
-  if (data.error) return '❌ ' + data.error;
+  if (data.error) return data.error;
   if (intent === 'pto_balance') {
-    if (data.balance_days != null) return `You have **${data.balance_days} PTO days** remaining (${data.accrued_ytd || 0} accrued this year, ${data.used_ytd || 0} used).`;
+    if (data.balance_days != null) return `You have ${data.balance_days} PTO days remaining (${data.accrued_ytd || 0} accrued this year, ${data.used_ytd || 0} used).`;
     return JSON.stringify(data, null, 2);
   }
   if (intent === 'profile') {
-    return `**${data.full_name}** · ${data.title}\nDepartment: ${data.department}\nEmployee Code: ${data.employee_code}\nManager: ${data.manager_name || 'N/A'}\nHire Date: ${data.hire_date || 'N/A'}`;
+    return `${data.full_name} · ${data.title}\nDepartment: ${data.department}\nEmployee Code: ${data.employee_code}\nManager: ${data.manager_name || 'N/A'}\nHire Date: ${data.hire_date || 'N/A'}`;
   }
   if (intent === 'tickets') {
     const rows = data.tickets || data.rows || [];
     if (!rows.length) return 'No tickets found.';
-    return rows.map(t => `🎫 [${t.ticket_code || t.id}] **${t.title}** · ${t.status} · ${t.priority}`).join('\n');
+    return rows.map(t => `[${t.ticket_code || t.id}] ${t.title} · ${t.status} · ${t.priority}`).join('\n');
   }
   if (intent === 'search') {
     return data.answer || data.text || JSON.stringify(data);
@@ -345,19 +416,19 @@ async function sendMsg(text) {
     else if (intent === 'tickets') { data = await callTool('/webhook/tool-get-ticket-status', {}); }
     else if (intent === 'escalate') { data = await callTool('/webhook/tool-escalate-to-human', {summary: text}); }
     else if (intent === 'request_pto') {
-      data = {answer: "I can help you request PTO! Please use: /request YYYY-MM-DD YYYY-MM-DD reason\nExample: /request 2026-12-24 2026-12-26 Holiday vacation"};
+      data = {answer: "I can help you request PTO. Please use: /request YYYY-MM-DD YYYY-MM-DD reason\nExample: /request 2026-12-24 2026-12-26 Holiday vacation"};
       source = null;
     }
     else {
       const res = await callTool('/webhook/tool-search-kb', {query: text});
       data = res;
-      source = res.source_type ? (res.source_type === 'sample' ? 'Sample Policy' : res.source_type === 'website' ? 'Company Website' : 'Uploaded Document') : null;
+      source = res.source_type ? (res.source_type === 'sample' ? 'Sample policy' : res.source_type === 'website' ? 'Company website' : 'Uploaded document') : null;
     }
     thinking.remove();
     addBotMsg(formatToolResponse(intent, data), source);
   } catch(e) {
     thinking.remove();
-    addBotMsg('⚠️ Could not reach backend. Make sure n8n is running at ' + API);
+    addBotMsg('Could not reach backend. Make sure n8n is running at ' + API);
   }
   sendBtn.disabled = false;
   inputEl.focus();
@@ -379,9 +450,9 @@ function handleSend() {
       const t = addThinkingMsg();
       callTool('/webhook/tool-request-pto', {start_date:start, end_date:end, reason}).then(d => {
         t.remove();
-        addBotMsg(d.error ? '❌ ' + d.error : '✅ ' + (d.message || `PTO request submitted for ${start} → ${end}. Approval email sent.`));
+        addBotMsg(d.error ? d.error : (d.message || `PTO request submitted for ${start} to ${end}. Approval email sent.`));
         sendBtn.disabled = false;
-      }).catch(e => { t.remove(); addBotMsg('⚠️ Error: ' + e.message); sendBtn.disabled = false; });
+      }).catch(e => { t.remove(); addBotMsg('Error: ' + e.message); sendBtn.disabled = false; });
       return;
     }
   }
@@ -412,12 +483,11 @@ async function pollTrace() {
       if (firstLoad) traceEl.innerHTML = '';
       newItems.reverse().forEach(c => {
         const statusClass = c.status === 'success' ? 'status-success' : c.status === 'denied' ? 'status-denied' : 'status-error';
-        const statusIcon = c.status === 'success' ? '✅' : c.status === 'denied' ? '🚫' : '❌';
         const div = document.createElement('div');
         div.className = 'trace-item';
         div.innerHTML = `
-          <div class="trace-tool">🔧 ${escHtml(c.tool_name)}</div>
-          <div class="trace-status ${statusClass}">${statusIcon} ${c.status} <span class="trace-latency">· ${c.latency_ms || '—'}ms</span></div>`;
+          <div class="trace-tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>${escHtml(c.tool_name)}</div>
+          <div class="trace-status ${statusClass}"><div class="trace-status-dot"></div>${c.status} <span class="trace-latency">· ${c.latency_ms || '—'}ms</span></div>`;
         traceEl.insertBefore(div, traceEl.firstChild);
       });
     }

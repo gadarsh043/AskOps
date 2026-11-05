@@ -5,106 +5,156 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AskOps · Choose Persona</title>
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
-  header{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 2rem;height:60px;display:flex;align-items:center;gap:.75rem}
-  .logo{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  .logo-sub{color:#64748b;font-size:.85rem}
-  main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:3rem 1rem}
-  .card{background:#fff;border-radius:1rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:2.5rem;width:100%;max-width:680px}
-  .step-label{font-size:.8rem;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
-  h1{font-size:1.6rem;font-weight:700;color:#0f172a;margin-bottom:.4rem}
-  .sub{color:#64748b;font-size:.95rem;margin-bottom:2rem}
-  .personas{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2rem}
-  .persona-card{border:2px solid #e2e8f0;border-radius:.875rem;padding:1.5rem;cursor:pointer;transition:all .2s;background:#fff;text-align:center;position:relative}
-  .persona-card:hover{border-color:#6366f1;background:#fafbff}
-  .persona-card.selected{border-color:#6366f1;background:linear-gradient(135deg,#eef2ff,#f5f3ff);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
-  .persona-emoji{font-size:3rem;margin-bottom:.75rem;display:block}
-  .persona-name{font-size:1.05rem;font-weight:700;color:#0f172a;margin-bottom:.2rem}
-  .persona-title{font-size:.85rem;color:#64748b;margin-bottom:.6rem}
-  .persona-role{display:inline-block;padding:.25rem .75rem;border-radius:1rem;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-  .role-employee{background:#dbeafe;color:#1d4ed8}
-  .role-hr{background:#fce7f3;color:#be185d}
-  .check{position:absolute;top:.75rem;right:.75rem;width:1.5rem;height:1.5rem;background:#6366f1;border-radius:50%;display:none;align-items:center;justify-content:center;color:#fff;font-size:.8rem}
+  :root{
+    --bg:#f5f7fa;--surface:#fff;--surface-raised:#eef1f6;
+    --border:rgba(17,24,39,.09);--text-1:#111827;--text-2:#4b5565;--text-3:#6b7487;
+    --accent:#2563eb;--accent-dark:#1d4ed8;--positive:#059669;--danger:#dc2626;
+  }
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;color:var(--text-1)}
+  header{background:#fff;border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .logo-mark{width:24px;height:24px;flex-shrink:0}
+  .logo-text{font-size:1rem;font-weight:500;color:var(--text-1);letter-spacing:-0.01em}
+  .logo-sep{color:var(--border);margin:0 2px;font-size:.9rem;user-select:none}
+  .logo-sub{color:var(--text-3);font-size:.82rem}
+  main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 1rem}
+  .card{background:#fff;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04);padding:40px;width:100%;max-width:680px}
+  .steps-bar{display:flex;gap:4px;margin-bottom:32px}
+  .step-seg{flex:1;height:3px;border-radius:2px;background:#e5e7eb;transition:background .3s}
+  .step-seg.active{background:var(--accent)}
+  .step-seg.done{background:var(--positive)}
+  .step-label{font-size:.75rem;font-weight:500;color:var(--text-3);margin-bottom:6px}
+  h1{font-size:1.5rem;font-weight:500;color:var(--text-1);margin-bottom:6px;letter-spacing:-0.015em}
+  .sub{color:var(--text-2);font-size:.9rem;line-height:1.6;margin-bottom:28px}
+  .back-link{display:inline-flex;align-items:center;gap:5px;color:var(--text-3);font-size:.82rem;cursor:pointer;border:none;background:none;font-family:inherit;margin-bottom:20px;padding:0;transition:color 150ms}
+  .back-link:hover{color:var(--text-2)}
+  /* persona grid */
+  .personas{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px}
+  .persona-card{border:1.5px solid var(--border);border-radius:12px;padding:24px 20px;cursor:pointer;transition:border-color 150ms,background 150ms;background:#fff;position:relative}
+  .persona-card:hover{border-color:#93c5fd;background:#fafcff}
+  .persona-card.selected{border-color:var(--accent);background:#f0f7ff}
+  .check{position:absolute;top:12px;right:12px;width:20px;height:20px;background:var(--accent);border-radius:50%;display:none;align-items:center;justify-content:center;color:#fff}
+  .check svg{width:11px;height:11px}
   .persona-card.selected .check{display:flex}
-  .field{margin-bottom:1.5rem}
-  label{display:block;font-size:.85rem;font-weight:600;color:#374151;margin-bottom:.4rem}
-  input[type=email],input[type=text]{width:100%;padding:.7rem 1rem;border:1.5px solid #e2e8f0;border-radius:.5rem;font-size:.95rem;outline:none;transition:border .2s;background:#fff;color:#0f172a}
-  input[type=email]:focus,input[type=text]:focus{border-color:#6366f1}
-  .field-hint{font-size:.78rem;color:#94a3b8;margin-top:.35rem}
-  .btn-primary{width:100%;padding:.9rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s}
-  .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.35)}
-  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
-  .back-link{color:#64748b;font-size:.85rem;cursor:pointer;border:none;background:none;margin-bottom:1.5rem;display:inline-flex;align-items:center;gap:.25rem}
-  .back-link:hover{color:#4f46e5}
-  .steps-bar{display:flex;gap:.5rem;margin-bottom:2rem}
-  .step-dot{flex:1;height:4px;border-radius:2px;background:#e2e8f0}
-  .step-dot.done{background:#10b981}
-  .step-dot.active{background:linear-gradient(90deg,#6366f1,#8b5cf6)}
-  .err{color:#ef4444;font-size:.82rem;margin-top:.4rem;display:none}
+  /* persona icon */
+  .persona-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+  .persona-icon.employee{background:#eff6ff}
+  .persona-icon.hr{background:#fef3c7}
+  .persona-icon svg{width:22px;height:22px}
+  .persona-icon.employee svg{color:#2563eb}
+  .persona-icon.hr svg{color:#d97706}
+  .persona-name{font-size:1rem;font-weight:500;color:var(--text-1);margin-bottom:2px}
+  .persona-title{font-size:.82rem;color:var(--text-2);margin-bottom:10px}
+  .persona-role{display:inline-block;padding:3px 10px;border-radius:6px;font-size:.72rem;font-weight:500;margin-bottom:14px}
+  .role-employee{background:#eff6ff;color:#1d4ed8}
+  .role-hr{background:#fef3c7;color:#92400e}
+  /* permission list */
+  .perm-list{display:flex;flex-direction:column;gap:4px}
+  .perm{display:flex;align-items:center;gap:7px;font-size:.78rem}
+  .perm svg{flex-shrink:0}
+  .perm.allow svg{color:var(--positive)}
+  .perm.deny svg{color:#d1d5db}
+  .perm.allow span{color:var(--text-2)}
+  .perm.deny span{color:var(--text-3)}
+  /* form */
+  .field{margin-bottom:20px}
+  label{display:block;font-size:.825rem;font-weight:500;color:var(--text-2);margin-bottom:6px}
+  .label-opt{color:var(--text-3);font-weight:400}
+  input[type=email],input[type=text]{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.875rem;font-family:inherit;outline:none;transition:border-color 150ms;background:#fff;color:var(--text-1)}
+  input[type=email]:focus,input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+  .field-hint{font-size:.78rem;color:var(--text-3);margin-top:5px;line-height:1.5}
+  .err{color:var(--danger);font-size:.8rem;margin-top:5px;display:none}
+  .btn-primary{width:100%;padding:11px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:.9rem;font-weight:500;font-family:inherit;cursor:pointer;transition:background 150ms;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-primary:hover:not(:disabled){background:var(--accent-dark)}
+  .btn-primary:active{transform:scale(0.99)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  svg.ic{width:16px;height:16px;display:inline-block;vertical-align:middle;flex-shrink:0}
 </style>
 </head>
 <body>
 <header>
-  <span style="font-size:1.3rem">⚡</span>
-  <span class="logo">AskOps</span>
-  <span class="logo-sub">AI-Powered IT & HR Service Desk</span>
+  <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M2 3.5A1.5 1.5 0 013.5 2h17A1.5 1.5 0 0122 3.5v11A1.5 1.5 0 0120.5 16H9l-7 5V3.5z" fill="#3b82f6"/>
+    <path d="M7 9.5l3 3 7-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="logo-text">AskOps</span>
+  <span class="logo-sep">/</span>
+  <span class="logo-sub">IT & HR Service Desk</span>
 </header>
 <main>
   <div class="card">
     <div class="steps-bar">
-      <div class="step-dot done"></div>
-      <div class="step-dot active"></div>
-      <div class="step-dot"></div>
+      <div class="step-seg done"></div>
+      <div class="step-seg active"></div>
+      <div class="step-seg"></div>
     </div>
-    <button class="back-link" onclick="history.back()">← Back</button>
+
+    <button class="back-link" onclick="history.back()">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      Back
+    </button>
+
     <div class="step-label">Step 2 of 3</div>
-    <h1>Choose Your Persona</h1>
+    <h1>Choose your persona</h1>
     <p class="sub">Select who you are for this demo session. Permissions and tool access change based on your role.</p>
 
     <div class="personas">
+      <!-- Adarsh -->
       <div class="persona-card" id="card-adarsh" onclick="selectPersona('EMP-042','adarsh')">
-        <div class="check">✓</div>
-        <span class="persona-emoji">👨‍💻</span>
+        <div class="check">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg>
+        </div>
+        <div class="persona-icon employee">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        </div>
         <div class="persona-name">Adarsh Gella</div>
         <div class="persona-title">Software Engineer</div>
         <span class="persona-role role-employee">Employee</span>
-        <div style="margin-top:.75rem;font-size:.78rem;color:#94a3b8;text-align:left;line-height:1.5">
-          ✓ Ask HR/IT questions<br>
-          ✓ Check PTO balance<br>
-          ✓ Request time off<br>
-          ✓ Create support tickets<br>
-          ✗ View salaries<br>
-          ✗ Approve PTO
+        <div class="perm-list">
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>Ask HR & IT questions</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>Check PTO balance</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>Request time off</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>Create support tickets</span></div>
+          <div class="perm deny"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>View salaries</span></div>
+          <div class="perm deny"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Approve PTO</span></div>
         </div>
       </div>
+
+      <!-- John Lee -->
       <div class="persona-card" id="card-john" onclick="selectPersona('EMP-007','john')">
-        <div class="check">✓</div>
-        <span class="persona-emoji">👔</span>
+        <div class="check">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg>
+        </div>
+        <div class="persona-icon hr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+        </div>
         <div class="persona-name">John Lee</div>
         <div class="persona-title">HR Manager</div>
         <span class="persona-role role-hr">HR</span>
-        <div style="margin-top:.75rem;font-size:.78rem;color:#94a3b8;text-align:left;line-height:1.5">
-          ✓ Ask HR/IT questions<br>
-          ✓ View all PTO requests<br>
-          ✓ Approve / reject PTO<br>
-          ✓ View employee salaries<br>
-          ✓ See all tickets<br>
-          ✓ All employee features
+        <div class="perm-list">
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>Ask HR & IT questions</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>View all PTO requests</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>Approve or reject PTO</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>View employee salaries</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>See all tickets</span></div>
+          <div class="perm allow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg><span>All employee features</span></div>
         </div>
       </div>
     </div>
 
     <div class="field">
-      <label>Approval Email <span style="color:#94a3b8;font-weight:400">(for PTO request notifications)</span></label>
+      <label>Approval email <span class="label-opt">(for PTO request notifications)</span></label>
       <input type="email" id="manager-email" placeholder="your-email@example.com">
       <div class="field-hint">PTO approval requests will be sent to this address. Use your real email for the demo.</div>
       <div class="err" id="email-err">Please select a persona first.</div>
     </div>
 
     <button class="btn-primary" id="continue-btn" onclick="handleContinue()" disabled>
-      Build Workspace →
+      Build workspace
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </button>
   </div>
 </main>
@@ -144,14 +194,12 @@ async function handleContinue() {
       body: JSON.stringify({workspace_id: workspaceId, employee_code: selectedCode, manager_email: email || null})
     });
   } catch (e) {
-    // Non-fatal — session set in DB is best-effort
     console.warn('Could not set persona in DB:', e);
   }
 
   window.location.href = 'build.html';
 }
 
-// Restore saved persona
 const saved = localStorage.getItem('askops_persona');
 if (saved === 'EMP-042') selectPersona('EMP-042', 'adarsh');
 else if (saved === 'EMP-007') selectPersona('EMP-007', 'john');

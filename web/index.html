@@ -3,40 +3,74 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AskOps · AI-Powered IT & HR Service Desk</title>
+<title>AskOps · IT & HR Service Desk</title>
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .logo{font-size:3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  .sub{color:#94a3b8;margin-top:.5rem;font-size:1.1rem;text-align:center}
-  .btn{margin-top:2rem;padding:1rem 2.5rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none;display:inline-block}
-  .btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(99,102,241,.4)}
-  .badges{display:flex;gap:1rem;margin-top:3rem;flex-wrap:wrap;justify-content:center}
-  .badge{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:2rem;padding:.4rem 1rem;font-size:.8rem;color:#94a3b8}
-  .spark{font-size:1.4rem;margin-right:.4rem}
+  body{font-family:'Inter',system-ui,sans-serif;background:#0d0f14;color:#eef0f5;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .wrap{text-align:center;max-width:560px;padding:2rem 1.5rem}
+  .logo-row{display:inline-flex;align-items:center;gap:10px;margin-bottom:32px}
+  .logo-mark{width:36px;height:36px;flex-shrink:0}
+  .logo-text{font-size:1.5rem;font-weight:500;color:#eef0f5;letter-spacing:-0.01em}
+  h1{font-size:2.75rem;font-weight:400;line-height:1.1;letter-spacing:-0.025em;margin-bottom:16px;color:#eef0f5}
+  .sub{font-size:1rem;line-height:1.6;color:#a3a9b8;margin-bottom:40px;max-width:420px;margin-left:auto;margin-right:auto}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-size:.9rem;font-weight:500;font-family:inherit;cursor:pointer;text-decoration:none;transition:background 150ms}
+  .btn:hover{background:#2563eb}
+  .btn:active{transform:scale(0.98)}
+  .features{display:flex;flex-direction:column;gap:10px;margin-top:48px;text-align:left}
+  .feat{display:flex;align-items:center;gap:10px;font-size:.85rem;color:#a3a9b8}
+  .feat svg{flex-shrink:0;color:#3b82f6}
+  .feat-text{color:#a3a9b8}
 </style>
 </head>
 <body>
-<div style="text-align:center;max-width:600px;padding:2rem">
-  <div style="font-size:4rem;margin-bottom:1rem">⚡</div>
-  <div class="logo">AskOps</div>
-  <div class="sub">AI-Powered IT &amp; HR Service Desk<br>Built for any company in minutes</div>
-  <a href="setup.html" class="btn">Get Started →</a>
-  <div class="badges">
-    <span class="badge">🤖 AI-powered answers</span>
-    <span class="badge">📋 PTO management</span>
-    <span class="badge">🎫 Ticket creation</span>
-    <span class="badge">📊 Live metrics</span>
-    <span class="badge">🔒 Role-based access</span>
+<div class="wrap">
+  <div class="logo-row">
+    <svg class="logo-mark" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+      <rect x="2" y="2" width="32" height="32" rx="8" fill="#1e2a3a"/>
+      <path d="M6 6h24a2 2 0 012 2v14a2 2 0 01-2 2H14l-8 6V8a2 2 0 012-2z" fill="#3b82f6"/>
+      <path d="M11 15l4 4 10-8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="logo-text">AskOps</span>
+  </div>
+
+  <h1>IT & HR questions,<br>answered instantly.</h1>
+  <p class="sub">Set up an AI service desk for any company in minutes. Handles PTO requests, support tickets, and policy questions — with real access control.</p>
+
+  <a href="setup.html" class="btn">
+    Get started
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+  </a>
+
+  <div class="features">
+    <div class="feat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 20 4 15"/></svg>
+      <span class="feat-text">Scrapes your website and generates a knowledge base automatically</span>
+    </div>
+    <div class="feat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 20 4 15"/></svg>
+      <span class="feat-text">PTO requests, approval emails, and balance tracking built in</span>
+    </div>
+    <div class="feat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 20 4 15"/></svg>
+      <span class="feat-text">Role-based access — HR sees salaries, employees cannot</span>
+    </div>
+    <div class="feat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 20 4 15"/></svg>
+      <span class="feat-text">Live trace panel shows every tool call and latency as you chat</span>
+    </div>
+    <div class="feat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 20 4 15"/></svg>
+      <span class="feat-text">CSAT, accuracy, and task completion metrics on the dashboard</span>
+    </div>
   </div>
 </div>
 <script>
-  // Auto-redirect returning users
   const wid = localStorage.getItem('askops_workspace_id');
   const persona = localStorage.getItem('askops_persona');
   if (wid && persona) {
-    // Already set up — go straight to workspace
     setTimeout(() => { window.location.href = 'workspace.html'; }, 1500);
   }
 </script>

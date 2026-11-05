@@ -5,59 +5,85 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AskOps · Building Workspace</title>
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
-  header{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 2rem;height:60px;display:flex;align-items:center;gap:.75rem}
-  .logo{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  .logo-sub{color:#64748b;font-size:.85rem}
-  main{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
-  .card{background:#fff;border-radius:1rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:2.5rem;width:100%;max-width:580px}
-  .step-label{font-size:.8rem;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
-  h1{font-size:1.6rem;font-weight:700;color:#0f172a;margin-bottom:.4rem}
-  .sub{color:#64748b;font-size:.95rem;margin-bottom:2rem}
-  .company-name{font-size:1.1rem;font-weight:700;color:#0f172a;margin-bottom:1.5rem;padding:.5rem .75rem;background:#f8fafc;border-radius:.5rem;border-left:3px solid #6366f1}
-  .events-list{margin-bottom:1.5rem;min-height:180px}
-  .event-row{display:flex;align-items:flex-start;gap:.75rem;padding:.5rem 0;border-bottom:1px solid #f1f5f9;animation:fadeIn .3s ease}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-  .event-icon{width:1.5rem;height:1.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;margin-top:.1rem}
-  .icon-done{background:#dcfce7}
-  .icon-spin{background:#dbeafe}
-  .icon-wait{background:#f1f5f9}
-  .event-text{font-size:.9rem;color:#374151;flex:1;line-height:1.4}
-  .event-meta{font-size:.75rem;color:#94a3b8;margin-top:.1rem}
-  .progress-wrap{margin-bottom:1.5rem}
-  .progress-label{display:flex;justify-content:space-between;font-size:.82rem;color:#64748b;margin-bottom:.4rem}
-  .progress-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
-  .progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:4px;transition:width .4s ease;width:0%}
-  .btn-primary{width:100%;padding:.9rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:.75rem;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;display:none}
-  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.35)}
+  :root{
+    --bg:#f5f7fa;--surface:#fff;
+    --border:rgba(17,24,39,.09);--text-1:#111827;--text-2:#4b5565;--text-3:#6b7487;
+    --accent:#2563eb;--positive:#059669;
+  }
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;color:var(--text-1)}
+  header{background:#fff;border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .logo-mark{width:24px;height:24px;flex-shrink:0}
+  .logo-text{font-size:1rem;font-weight:500;color:var(--text-1);letter-spacing:-0.01em}
+  .logo-sep{color:var(--border);margin:0 2px;font-size:.9rem;user-select:none}
+  .logo-sub{color:var(--text-3);font-size:.82rem}
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 1rem}
+  .card{background:#fff;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04);padding:40px;width:100%;max-width:580px}
+  .steps-bar{display:flex;gap:4px;margin-bottom:32px}
+  .step-seg{flex:1;height:3px;border-radius:2px;background:#e5e7eb}
+  .step-seg.done{background:var(--positive)}
+  .step-seg.active{background:var(--accent)}
+  .step-label{font-size:.75rem;font-weight:500;color:var(--text-3);margin-bottom:6px}
+  h1{font-size:1.5rem;font-weight:500;color:var(--text-1);margin-bottom:6px;letter-spacing:-0.015em}
+  .sub{color:var(--text-2);font-size:.875rem;line-height:1.6;margin-bottom:24px}
+  /* company name tag */
+  .company-name{display:inline-flex;align-items:center;gap:8px;font-size:.875rem;font-weight:500;color:var(--text-1);margin-bottom:20px;padding:7px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);border-left:3px solid var(--accent)}
+  .company-name svg{color:var(--accent);flex-shrink:0}
+  /* events */
+  .events-list{margin-bottom:20px;min-height:200px}
+  .event-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;animation:fadeIn .25s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+  .event-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .event-icon svg{width:11px;height:11px}
+  .icon-done{background:#dcfce7;color:#15803d}
+  .icon-spin{background:#dbeafe;color:#1d4ed8}
+  .icon-wait{background:#f1f5f9;color:#94a3b8}
+  .icon-err{background:#fee2e2;color:#dc2626}
+  .event-text{font-size:.85rem;color:var(--text-1);flex:1;line-height:1.4}
+  .event-meta{font-size:.75rem;color:var(--text-3);margin-top:2px;font-variant-numeric:tabular-nums}
+  /* progress */
+  .progress-wrap{margin-bottom:20px}
+  .progress-label{display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-3);margin-bottom:6px;font-variant-numeric:tabular-nums}
+  .progress-bar{height:4px;background:#e5e7eb;border-radius:4px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .4s ease;width:0%}
+  /* spin animation */
   .spin{display:inline-block;animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .steps-bar{display:flex;gap:.5rem;margin-bottom:2rem}
-  .step-dot{flex:1;height:4px;border-radius:2px;background:#e2e8f0}
-  .step-dot.done{background:#10b981}
-  .step-dot.active{background:linear-gradient(90deg,#6366f1,#8b5cf6)}
+  /* go button */
+  .btn-primary{width:100%;padding:11px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:.9rem;font-weight:500;font-family:inherit;cursor:pointer;transition:background 150ms;display:none;align-items:center;justify-content:center;gap:8px}
+  .btn-primary:hover{background:#1d4ed8}
+  .btn-primary:active{transform:scale(0.99)}
+  svg.ic{width:16px;height:16px;display:inline-block;vertical-align:middle;flex-shrink:0}
 </style>
 </head>
 <body>
 <header>
-  <span style="font-size:1.3rem">⚡</span>
-  <span class="logo">AskOps</span>
-  <span class="logo-sub">AI-Powered IT & HR Service Desk</span>
+  <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M2 3.5A1.5 1.5 0 013.5 2h17A1.5 1.5 0 0122 3.5v11A1.5 1.5 0 0120.5 16H9l-7 5V3.5z" fill="#3b82f6"/>
+    <path d="M7 9.5l3 3 7-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="logo-text">AskOps</span>
+  <span class="logo-sep">/</span>
+  <span class="logo-sub">IT & HR Service Desk</span>
 </header>
 <main>
   <div class="card">
     <div class="steps-bar">
-      <div class="step-dot done"></div>
-      <div class="step-dot done"></div>
-      <div class="step-dot active"></div>
+      <div class="step-seg done"></div>
+      <div class="step-seg done"></div>
+      <div class="step-seg active"></div>
     </div>
     <div class="step-label">Step 3 of 3</div>
-    <h1>Building Your Workspace</h1>
-    <p class="sub">We're scraping your website, chunking content, generating embeddings, and creating your AI knowledge base.</p>
+    <h1>Building your workspace</h1>
+    <p class="sub">Scraping your website, chunking content, generating embeddings, and creating the knowledge base.</p>
 
-    <div class="company-name" id="company-name">🏢 Northwind Labs</div>
+    <div class="company-name" id="company-name">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22V12h6v10"/></svg>
+      Northwind Labs
+    </div>
 
     <div class="events-list" id="events-list"></div>
 
@@ -70,24 +96,32 @@
     </div>
 
     <button class="btn-primary" id="go-btn" onclick="window.location.href='workspace.html'">
-      Go to Workspace →
+      Go to workspace
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </button>
   </div>
 </main>
 <script>
 const DEMO_STEPS = [
-  {icon:'✅', text:'Workspace created', meta:'ID: 00000000-0001', pct:8, done:true},
-  {icon:'✅', text:'Connecting to northwind.example.com', meta:'Jina Reader ready', pct:15, done:true},
-  {icon:'✅', text:'Sitemap discovered — 24 URLs found', meta:'Scoring by relevance keywords', pct:22, done:true},
-  {icon:'✅', text:'Fetched 15 pages (homepage, about, careers, benefits, FAQ…)', meta:'~42 KB of content', pct:35, done:true},
-  {icon:'✅', text:'Company detected: Northwind Labs · Software · Remote-first', meta:'Via Groq extraction', pct:42, done:true},
-  {icon:'✅', text:'Chunked 15 pages → 68 chunks (avg 420 tokens)', meta:'~100 token overlap, heading-aware', pct:52, done:true},
-  {icon:'✅', text:'Generated embeddings (68 × 768 dims)', meta:'Gemini text-embedding-004', pct:68, done:true},
-  {icon:'✅', text:'Stored 68 chunks in knowledge base', meta:'pgvector · HNSW index', pct:78, done:true},
-  {icon:'✅', text:'Generated 5 sample policies (PTO, IT Security, Remote Work, Expenses, Onboarding)', meta:'Groq Llama · Northwind Labs branding', pct:88, done:true},
-  {icon:'✅', text:'Sample policies chunked → 22 chunks stored', meta:'source_type=sample', pct:95, done:true},
-  {icon:'✅', text:'Knowledge base ready — 90 total chunks', meta:'Semantic cache warmed', pct:100, done:true},
+  {icon:'done', text:'Workspace created', meta:'ID: 00000000-0001', pct:8},
+  {icon:'done', text:'Connecting to northwind.example.com', meta:'Jina Reader ready', pct:15},
+  {icon:'done', text:'Sitemap discovered — 24 URLs found', meta:'Scoring by relevance keywords', pct:22},
+  {icon:'done', text:'Fetched 15 pages (homepage, about, careers, benefits, FAQ…)', meta:'~42 KB of content', pct:35},
+  {icon:'done', text:'Company detected: Northwind Labs · Software · Remote-first', meta:'Via Groq extraction', pct:42},
+  {icon:'done', text:'Chunked 15 pages → 68 chunks (avg 420 tokens)', meta:'~100 token overlap, heading-aware', pct:52},
+  {icon:'done', text:'Generated embeddings (68 × 768 dims)', meta:'Gemini text-embedding-004', pct:68},
+  {icon:'done', text:'Stored 68 chunks in knowledge base', meta:'pgvector · HNSW index', pct:78},
+  {icon:'done', text:'Generated 5 sample policies (PTO, IT Security, Remote Work, Expenses, Onboarding)', meta:'Groq Llama · Northwind Labs branding', pct:88},
+  {icon:'done', text:'Sample policies chunked → 22 chunks stored', meta:'source_type=sample', pct:95},
+  {icon:'done', text:'Knowledge base ready — 90 total chunks', meta:'Semantic cache warmed', pct:100},
 ];
+
+const ICONS = {
+  done: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg>`,
+  spin: `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>`,
+  wait: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>`,
+  err: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+};
 
 const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_WORKSPACE_ID;
 const isDemo = localStorage.getItem('askops_demo_mode') === 'true';
@@ -99,14 +133,15 @@ const labelEl = document.getElementById('progress-label');
 const goBtn = document.getElementById('go-btn');
 
 function addEvent(step) {
+  const iconKey = step.icon || (step.done ? 'done' : step.pct > 0 ? 'spin' : 'wait');
+  const iconClass = {done:'icon-done', spin:'icon-spin', wait:'icon-wait', error:'icon-err'}[iconKey] || 'icon-wait';
   const row = document.createElement('div');
   row.className = 'event-row';
-  const iconClass = step.done ? 'icon-done' : (step.pct > 0 ? 'icon-spin' : 'icon-wait');
   row.innerHTML = `
-    <div class="event-icon ${iconClass}">${step.icon}</div>
+    <div class="event-icon ${iconClass}">${ICONS[iconKey] || ICONS.wait}</div>
     <div>
       <div class="event-text">${step.text}</div>
-      <div class="event-meta">${step.meta || ''}</div>
+      ${step.meta ? `<div class="event-meta">${step.meta}</div>` : ''}
     </div>`;
   list.appendChild(row);
   row.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -124,8 +159,8 @@ async function runDemo() {
     addEvent(DEMO_STEPS[i]);
     setProgress(DEMO_STEPS[i].pct, DEMO_STEPS[i].text);
   }
-  labelEl.textContent = 'Complete!';
-  goBtn.style.display = 'block';
+  labelEl.textContent = 'Complete';
+  goBtn.style.display = 'flex';
 }
 
 async function pollBuild() {
@@ -141,20 +176,20 @@ async function pollBuild() {
       list.innerHTML = '';
       let maxPct = 0;
       (data.events || []).forEach(ev => {
-        addEvent({icon: ev.level === 'done' ? '✅' : ev.level === 'error' ? '❌' : '⟳', text: ev.message, meta: ev.detail || '', done: ev.level === 'done', pct: ev.pct || 0});
+        addEvent({icon: ev.level === 'done' ? 'done' : ev.level === 'error' ? 'error' : 'spin', text: ev.message, meta: ev.detail || '', pct: ev.pct || 0});
         maxPct = Math.max(maxPct, ev.pct || 0);
       });
       setProgress(maxPct, data.status || 'Building…');
-      if (data.status === 'ready') { done = true; goBtn.style.display = 'block'; }
-    } catch(e) { /* retry */ }
+      if (data.status === 'ready') { done = true; goBtn.style.display = 'flex'; }
+    } catch(e) {}
   }
-  if (!done) { labelEl.textContent = 'Check n8n for status'; goBtn.style.display = 'block'; }
+  if (!done) { labelEl.textContent = 'Check n8n for status'; goBtn.style.display = 'flex'; }
 }
 
 if (isDemo) {
   runDemo();
 } else {
-  addEvent({icon:'⟳', text:'Starting ingestion…', meta:'', pct:0, done:false});
+  addEvent({icon:'spin', text:'Starting ingestion…', meta:'', pct:0});
   pollBuild();
 }
 </script>

@@ -5,95 +5,151 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AskOps · Metrics Dashboard</title>
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
-  header{background:#1e293b;border-bottom:1px solid #334155;padding:0 1.5rem;height:56px;display:flex;align-items:center;gap:.75rem}
-  .logo{font-size:1.1rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  .back-link{margin-left:auto;color:#94a3b8;text-decoration:none;font-size:.85rem;display:flex;align-items:center;gap:.25rem;padding:.35rem .75rem;border:1px solid #334155;border-radius:.5rem;transition:all .15s}
-  .back-link:hover{color:#f8fafc;border-color:#6366f1}
-  main{flex:1;padding:2rem 1.5rem;max-width:1100px;width:100%;margin:0 auto}
-  h1{font-size:1.5rem;font-weight:700;margin-bottom:.3rem}
-  .sub{color:#64748b;font-size:.9rem;margin-bottom:2rem}
-  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem}
-  .kpi{background:#1e293b;border:1px solid #334155;border-radius:.875rem;padding:1.25rem 1.5rem;position:relative;overflow:hidden}
-  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-  .kpi.green::before{background:linear-gradient(90deg,#10b981,#34d399)}
-  .kpi.blue::before{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
-  .kpi.purple::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
-  .kpi.indigo::before{background:linear-gradient(90deg,#6366f1,#818cf8)}
-  .kpi.pink::before{background:linear-gradient(90deg,#ec4899,#f472b6)}
-  .kpi.orange::before{background:linear-gradient(90deg,#f97316,#fb923c)}
-  .kpi-label{font-size:.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
-  .kpi-value{font-size:2rem;font-weight:800;line-height:1}
-  .kpi.green .kpi-value{color:#34d399}
-  .kpi.blue .kpi-value{color:#60a5fa}
-  .kpi.purple .kpi-value{color:#a78bfa}
-  .kpi.indigo .kpi-value{color:#818cf8}
-  .kpi.pink .kpi-value{color:#f472b6}
-  .kpi.orange .kpi-value{color:#fb923c}
-  .kpi-sub{font-size:.78rem;color:#475569;margin-top:.4rem}
-  .section{background:#1e293b;border:1px solid #334155;border-radius:.875rem;margin-bottom:1rem;overflow:hidden}
-  .section-header{padding:.875rem 1.25rem;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between}
-  .section-title{font-size:.9rem;font-weight:600;color:#e2e8f0}
-  .section-badge{font-size:.72rem;padding:.2rem .6rem;background:#0f172a;border:1px solid #334155;border-radius:1rem;color:#64748b}
+  :root{
+    --bg:#0d0f14;--surface:#131720;--surface-2:#191e2b;
+    --border:rgba(238,240,245,.07);--text-1:#eef0f5;--text-2:#a3a9b8;--text-3:#6b7487;
+    --accent:#3b82f6;--positive:#34d399;--denied:#c084fc;--danger:#f87171;
+  }
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text-1);min-height:100vh;display:flex;flex-direction:column}
+  /* header */
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .logo-mark{width:22px;height:22px;flex-shrink:0}
+  .logo-text{font-size:.95rem;font-weight:500;color:var(--text-1);letter-spacing:-0.01em}
+  .header-sep{color:var(--border);margin:0 2px;font-size:.85rem}
+  .header-sub{color:var(--text-3);font-size:.82rem}
+  .back-link{margin-left:auto;color:var(--text-3);text-decoration:none;font-size:.8rem;display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--border);border-radius:7px;transition:all 150ms}
+  .back-link:hover{color:var(--text-1);border-color:var(--accent)}
+  .back-link svg{width:14px;height:14px}
+  /* main */
+  main{flex:1;padding:32px 24px;max-width:1100px;width:100%;margin:0 auto}
+  .page-header{margin-bottom:24px}
+  h1{font-size:1.4rem;font-weight:500;letter-spacing:-0.015em;margin-bottom:4px}
+  .sub{color:var(--text-3);font-size:.82rem}
+  /* success metrics banner */
+  .jd-section{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:20px 24px;margin-bottom:24px}
+  .jd-title{font-size:.8rem;font-weight:500;color:var(--text-2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.04em}
+  .jd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+  .jd-item{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text-2)}
+  .jd-check{width:14px;height:14px;border-radius:50%;background:var(--positive);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .jd-check svg{width:9px;height:9px;color:#0d0f14}
+  .jd-val{color:var(--text-1);font-weight:500;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+  /* kpi grid */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 20px 16px}
+  .kpi-label{font-size:.72rem;font-weight:500;color:var(--text-3);margin-bottom:10px}
+  .kpi-value{font-size:2rem;font-weight:500;line-height:1;font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace;color:var(--text-1)}
+  .kpi.accent .kpi-value{color:var(--accent)}
+  .kpi.positive .kpi-value{color:var(--positive)}
+  .kpi-sub{font-size:.72rem;color:var(--text-3);margin-top:6px}
+  /* sections */
+  .section{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+  .section-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .section-title{font-size:.85rem;font-weight:500;color:var(--text-1)}
+  .section-badge{font-size:.72rem;padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text-3);font-family:'JetBrains Mono',monospace}
+  /* table */
   table{width:100%;border-collapse:collapse}
-  th{font-size:.75rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:.6rem 1.25rem;text-align:left;border-bottom:1px solid #1e293b}
-  td{font-size:.85rem;color:#cbd5e1;padding:.6rem 1.25rem;border-bottom:1px solid #1a2234}
+  th{font-size:.72rem;font-weight:500;color:var(--text-3);padding:8px 20px;text-align:left;border-bottom:1px solid var(--border)}
+  td{font-size:.82rem;color:var(--text-2);padding:9px 20px;border-bottom:1px solid rgba(238,240,245,.04)}
   tr:last-child td{border-bottom:none}
-  tr:hover td{background:rgba(255,255,255,.02)}
-  .pill{display:inline-block;padding:.15rem .6rem;border-radius:1rem;font-size:.72rem;font-weight:600}
-  .pill-success{background:#052e16;color:#34d399}
-  .pill-denied{background:#2d1b4e;color:#c084fc}
-  .pill-error{background:#2d0a0a;color:#f87171}
-  .refresh-btn{padding:.35rem .75rem;background:transparent;border:1px solid #334155;border-radius:.5rem;color:#94a3b8;font-size:.78rem;cursor:pointer;transition:all .15s}
-  .refresh-btn:hover{border-color:#6366f1;color:#a5b4fc}
-  .empty{color:#475569;text-align:center;padding:2rem;font-size:.85rem}
-  .jd-section{background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(139,92,246,.1));border:1px solid rgba(99,102,241,.3);border-radius:.875rem;padding:1.5rem;margin-bottom:1.5rem}
-  .jd-title{font-size:.85rem;font-weight:700;color:#a5b4fc;margin-bottom:.75rem}
-  .jd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem}
-  .jd-item{display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:#94a3b8}
-  .jd-check{color:#34d399;font-size:.9rem}
+  tr:hover td{background:rgba(255,255,255,.015)}
+  .mono{font-family:'JetBrains Mono',monospace;font-size:.78rem}
+  /* status pills */
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:500}
+  .pill::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  .pill-success{background:rgba(52,211,153,.1);color:var(--positive)}
+  .pill-success::before{background:var(--positive)}
+  .pill-denied{background:rgba(192,132,252,.1);color:var(--denied)}
+  .pill-denied::before{background:var(--denied)}
+  .pill-error{background:rgba(248,113,113,.1);color:var(--danger)}
+  .pill-error::before{background:var(--danger)}
+  /* controls */
+  .refresh-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-3);font-size:.78rem;font-family:inherit;cursor:pointer;transition:all 150ms}
+  .refresh-btn:hover{border-color:var(--accent);color:var(--text-2)}
+  .refresh-btn svg{width:13px;height:13px}
+  .empty{color:var(--text-3);text-align:center;padding:32px;font-size:.82rem}
 </style>
 </head>
 <body>
 <header>
-  <span style="font-size:1.1rem">⚡</span>
-  <span class="logo">AskOps</span>
-  <span style="color:#334155;font-size:.85rem">· Metrics Dashboard</span>
-  <a href="workspace.html" class="back-link">← Workspace</a>
+  <svg class="logo-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M2 3.5A1.5 1.5 0 013.5 2h17A1.5 1.5 0 0122 3.5v11A1.5 1.5 0 0120.5 16H9l-7 5V3.5z" fill="#3b82f6"/>
+    <path d="M7 9.5l3 3 7-6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="logo-text">AskOps</span>
+  <span class="header-sep">/</span>
+  <span class="header-sub">Metrics Dashboard</span>
+  <a href="workspace.html" class="back-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    Workspace
+  </a>
 </header>
 <main>
-  <h1>📊 Metrics Dashboard</h1>
-  <p class="sub">Live metrics from the <span id="workspace-label">demo workspace</span> · <span id="last-refresh">Refreshing…</span></p>
+  <div class="page-header">
+    <h1>Metrics</h1>
+    <p class="sub"><span id="workspace-label">Demo workspace</span> · <span id="last-refresh">Refreshing…</span></p>
+  </div>
 
+  <!-- Agent Builder success metrics -->
   <div class="jd-section">
-    <div class="jd-title">✅ Success Metrics — Agent Builder Role</div>
+    <div class="jd-title">Agent Builder role — success metrics</div>
     <div class="jd-grid">
-      <div class="jd-item"><span class="jd-check">✓</span> Agents deployed: <strong id="jd-agents" style="color:#f8fafc;margin-left:.25rem">1</strong></div>
-      <div class="jd-item"><span class="jd-check">✓</span> Manual time reduced: <strong id="jd-time" style="color:#f8fafc;margin-left:.25rem">—</strong></div>
-      <div class="jd-item"><span class="jd-check">✓</span> User satisfaction (CSAT): <strong id="jd-csat" style="color:#f8fafc;margin-left:.25rem">—</strong></div>
-      <div class="jd-item"><span class="jd-check">✓</span> Accuracy rate: <strong id="jd-acc" style="color:#f8fafc;margin-left:.25rem">—</strong></div>
-      <div class="jd-item"><span class="jd-check">✓</span> Task completion rate: <strong id="jd-completion" style="color:#f8fafc;margin-left:.25rem">—</strong></div>
-      <div class="jd-item"><span class="jd-check">✓</span> Total conversations: <strong id="jd-convs" style="color:#f8fafc;margin-left:.25rem">—</strong></div>
+      <div class="jd-item"><div class="jd-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg></div><span>Agents deployed: <span class="jd-val" id="jd-agents">1</span></span></div>
+      <div class="jd-item"><div class="jd-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg></div><span>Manual time reduced: <span class="jd-val" id="jd-time">—</span></span></div>
+      <div class="jd-item"><div class="jd-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg></div><span>CSAT: <span class="jd-val" id="jd-csat">—</span></span></div>
+      <div class="jd-item"><div class="jd-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg></div><span>Accuracy rate: <span class="jd-val" id="jd-acc">—</span></span></div>
+      <div class="jd-item"><div class="jd-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg></div><span>Task completion: <span class="jd-val" id="jd-completion">—</span></span></div>
+      <div class="jd-item"><div class="jd-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 20 4 15"/></svg></div><span>Total conversations: <span class="jd-val" id="jd-convs">—</span></span></div>
     </div>
   </div>
 
+  <!-- KPIs -->
   <div class="kpi-grid">
-    <div class="kpi green"><div class="kpi-label">CSAT Score</div><div class="kpi-value" id="kpi-csat">—</div><div class="kpi-sub">thumbs up / total</div></div>
-    <div class="kpi blue"><div class="kpi-label">Tool Success Rate</div><div class="kpi-value" id="kpi-acc">—</div><div class="kpi-sub">success / (success+error)</div></div>
-    <div class="kpi purple"><div class="kpi-label">Tool Calls</div><div class="kpi-value" id="kpi-tools">—</div><div class="kpi-sub">total invocations</div></div>
-    <div class="kpi indigo"><div class="kpi-label">KB Chunks</div><div class="kpi-value" id="kpi-chunks">—</div><div class="kpi-sub">knowledge base size</div></div>
-    <div class="kpi pink"><div class="kpi-label">Denied Requests</div><div class="kpi-value" id="kpi-denied">—</div><div class="kpi-sub">access control in action</div></div>
-    <div class="kpi orange"><div class="kpi-label">Cache Hits</div><div class="kpi-value" id="kpi-cache">—</div><div class="kpi-sub">semantic cache efficiency</div></div>
+    <div class="kpi positive">
+      <div class="kpi-label">CSAT score</div>
+      <div class="kpi-value" id="kpi-csat">—</div>
+      <div class="kpi-sub">thumbs up / total</div>
+    </div>
+    <div class="kpi accent">
+      <div class="kpi-label">Tool success rate</div>
+      <div class="kpi-value" id="kpi-acc">—</div>
+      <div class="kpi-sub">success / (success + error)</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Tool calls</div>
+      <div class="kpi-value" id="kpi-tools">—</div>
+      <div class="kpi-sub">total invocations</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">KB chunks</div>
+      <div class="kpi-value" id="kpi-chunks">—</div>
+      <div class="kpi-sub">knowledge base size</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Denied requests</div>
+      <div class="kpi-value" id="kpi-denied">—</div>
+      <div class="kpi-sub">access control in action</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Cache hits</div>
+      <div class="kpi-value" id="kpi-cache">—</div>
+      <div class="kpi-sub">semantic cache efficiency</div>
+    </div>
   </div>
 
+  <!-- Recent tool calls -->
   <div class="section">
     <div class="section-header">
-      <span class="section-title">Recent Tool Calls</span>
-      <div style="display:flex;align-items:center;gap:.5rem">
+      <span class="section-title">Recent tool calls</span>
+      <div style="display:flex;align-items:center;gap:8px">
         <span class="section-badge" id="tool-count">—</span>
-        <button class="refresh-btn" onclick="loadMetrics()">↻ Refresh</button>
+        <button class="refresh-btn" onclick="loadMetrics()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+          Refresh
+        </button>
       </div>
     </div>
     <table>
@@ -102,12 +158,13 @@
     </table>
   </div>
 
+  <!-- Breakdown -->
   <div class="section">
     <div class="section-header">
-      <span class="section-title">Tool Call Breakdown</span>
+      <span class="section-title">Tool call breakdown</span>
     </div>
     <table>
-      <thead><tr><th>Tool</th><th>Success</th><th>Denied</th><th>Error</th><th>Avg Latency</th></tr></thead>
+      <thead><tr><th>Tool</th><th>Success</th><th>Denied</th><th>Error</th><th>Avg latency</th></tr></thead>
       <tbody id="breakdown-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
@@ -115,7 +172,7 @@
 <script>
 const API = window.ASKOPS_API;
 const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_WORKSPACE_ID;
-document.getElementById('workspace-label').textContent = 'workspace ' + workspaceId.slice(-8);
+document.getElementById('workspace-label').textContent = 'workspace …' + workspaceId.slice(-6);
 
 function fmt(val, suffix='') { return val != null ? val + suffix : '—'; }
 function timeAgo(ts) {
@@ -133,7 +190,6 @@ async function loadMetrics() {
     if (!res.ok) throw new Error('HTTP '+res.status);
     const d = await res.json();
 
-    // KPIs
     const totalFb = (d.thumbs_up||0) + (d.thumbs_down||0);
     const csat = totalFb > 0 ? Math.round(100*(d.thumbs_up||0)/totalFb)+'%' : '—';
     const accRate = (d.success_count||0)+(d.error_count||0) > 0 ? Math.round(100*(d.success_count||0)/((d.success_count||0)+(d.error_count||0)))+'%' : '—';
@@ -146,41 +202,38 @@ async function loadMetrics() {
     document.getElementById('kpi-denied').textContent = fmt(d.denied_count);
     document.getElementById('kpi-cache').textContent = fmt(d.cache_hits);
 
-    // JD row
     document.getElementById('jd-csat').textContent = csatScore;
     document.getElementById('jd-acc').textContent = accRate;
     document.getElementById('jd-time').textContent = `${fmt(d.action_count)} tasks`;
     document.getElementById('jd-completion').textContent = accRate;
     document.getElementById('jd-convs').textContent = fmt(d.conversation_count);
 
-    // Tool calls table
     const calls = d.recent_calls || [];
     const tbody = document.getElementById('tool-calls-tbody');
     document.getElementById('tool-count').textContent = fmt(d.total_tool_calls) + ' total';
     if (calls.length) {
       tbody.innerHTML = calls.map(c => `
         <tr>
-          <td style="font-family:monospace;font-size:.8rem">${c.tool_name}</td>
+          <td class="mono">${c.tool_name}</td>
           <td><span class="pill pill-${c.status}">${c.status}</span></td>
-          <td>${c.latency_ms != null ? c.latency_ms+'ms' : '—'}</td>
-          <td style="color:#64748b;font-size:.8rem">${c.employee_code || '—'}</td>
-          <td style="color:#64748b;font-size:.8rem">${timeAgo(c.created_at)}</td>
+          <td class="mono">${c.latency_ms != null ? c.latency_ms+'ms' : '—'}</td>
+          <td style="color:var(--text-3)" class="mono">${c.employee_code || '—'}</td>
+          <td style="color:var(--text-3)">${timeAgo(c.created_at)}</td>
         </tr>`).join('');
     } else {
       tbody.innerHTML = '<tr><td colspan="5" class="empty">No tool calls yet. Start a conversation in the workspace.</td></tr>';
     }
 
-    // Breakdown
     const breakdown = d.breakdown || [];
     const btbody = document.getElementById('breakdown-tbody');
     if (breakdown.length) {
       btbody.innerHTML = breakdown.map(b => `
         <tr>
-          <td style="font-family:monospace;font-size:.8rem">${b.tool_name}</td>
-          <td style="color:#34d399">${b.success_count||0}</td>
-          <td style="color:#c084fc">${b.denied_count||0}</td>
-          <td style="color:#f87171">${b.error_count||0}</td>
-          <td style="color:#64748b">${b.avg_latency_ms ? Math.round(b.avg_latency_ms)+'ms' : '—'}</td>
+          <td class="mono">${b.tool_name}</td>
+          <td style="color:var(--positive)">${b.success_count||0}</td>
+          <td style="color:var(--denied)">${b.denied_count||0}</td>
+          <td style="color:var(--danger)">${b.error_count||0}</td>
+          <td style="color:var(--text-3)" class="mono">${b.avg_latency_ms ? Math.round(b.avg_latency_ms)+'ms' : '—'}</td>
         </tr>`).join('');
     } else {
       btbody.innerHTML = '<tr><td colspan="5" class="empty">No data yet.</td></tr>';
@@ -189,7 +242,7 @@ async function loadMetrics() {
     document.getElementById('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
   } catch(e) {
     document.getElementById('last-refresh').textContent = 'Error — is n8n running?';
-    document.getElementById('tool-calls-tbody').innerHTML = `<tr><td colspan="5" class="empty">Could not connect to ${API}. Make sure n8n is running.</td></tr>`;
+    document.getElementById('tool-calls-tbody').innerHTML = `<tr><td colspan="5" class="empty">Could not connect to ${API}.</td></tr>`;
     document.getElementById('breakdown-tbody').innerHTML = '<tr><td colspan="5" class="empty">—</td></tr>';
   }
 }
