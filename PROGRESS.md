@@ -8,8 +8,8 @@ Status key: [ ] not started · [~] in progress · [x] done
 - [x] Demo seed with personas (Adarsh Gella, John Lee)
 - [x] Docker Compose mirroring Railway (Postgres + pgvector, n8n)
 - [ ] `docker compose up -d` works on my machine; seed loads
-- [ ] Git repo created and pushed to GitHub
-- [ ] n8n credentials added: Postgres (askops_app), Groq, Gemini, Gmail SMTP
+- [x] Git repo pushed to GitHub (gadarsh043/AskOps, branch master) (2026-11-05)
+- [x] n8n credentials on Railway: Postgres (askops_app), Groq (httpHeaderAuth), Gemini (httpQueryAuth), Gmail SMTP (2026-11-05)
 
 ## Phase 1: Tools (n8n MCP server), tested with curl before Copilot
 - [ ] MCP Server Trigger workflow exposing tools
@@ -62,18 +62,25 @@ Status key: [ ] not started · [~] in progress · [x] done
 - [x] 7 API workflows for frontend: api.build-status, api.set-persona, api.metrics, api.tool-trace, api.setup-workspace, tool.router, tool.log-turn (2026-11-05)
 
 ## Phase 7: Deploy
-- [ ] Railway: Postgres (pgvector image) + n8n, same N8N_ENCRYPTION_KEY
-- [ ] Run roles.sql + schema.sql on Railway; import workflows; re-add credentials
-- [ ] Railway usage limit set (stay inside $5)
-- [ ] Netlify deploy pointing at Railway n8n URL
-- [ ] Copilot Studio tools pointed at Railway n8n
+- [x] Railway: Postgres (native, pgvector built-in) + n8n 1.97.1 (2026-11-05)
+- [x] roles.sql + schema.sql + seed_demo.sql applied on Railway; askops_app grants applied (2026-11-05)
+- [x] 10 workflows imported and activated on Railway n8n (mcp.ask-ops, ingest.website, cron.cleanup, 7 api/tool workflows) (2026-11-05)
+- [x] Credentials created on Railway: Postgres, Groq, Gemini, Gmail SMTP (2026-11-05)
+- [x] Sample KB seeded on Railway (10 chunks across 4 docs) (2026-11-05)
+- [x] Netlify site deployed at https://ask-ops.netlify.app pointing at Railway n8n (2026-11-05)
+- [x] CORS confirmed: Railway n8n returns access-control-allow-origin: https://ask-ops.netlify.app (2026-11-05)
+- [x] End-to-end smoke test passed: profile ✓, balance ✓, requests ✓, compensation DENIED ✓, search_kb ✓, metrics ✓ (2026-11-05)
+- [x] Live demo confirmed: https://ask-ops.netlify.app chat answered PTO policy question from Railway KB (2026-11-05)
+- [ ] Railway usage limit set (stay inside $5 credit)
+- [ ] Update workspaces.demo_manager_email to interviewer's real email before interview
+- [ ] Copilot Studio tools pointed at Railway n8n (optional — Demo Chat works without it)
 
 ## Phase 8: Demo polish
 - [x] Test sheet: 34 test cases covering all tools, email flow, search_kb, ingestion, dashboard — test.md (2026-11-05)
 - [x] Deploy guide: Railway + Netlify + Copilot Studio steps — deploy.md (2026-11-05)
 - [x] Demo script: 5-min walkthrough in deploy.md (2026-11-05)
 - [ ] Architecture diagram
-- [ ] Dry run end to end on the deployed version
+- [x] Dry run end to end on deployed version at https://ask-ops.netlify.app (2026-11-05)
 
 ## Decision log
 
