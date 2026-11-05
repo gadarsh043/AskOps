@@ -406,7 +406,7 @@ function loadCopilotIframe(url) {
 // ── Intent detection (expanded regex + router fallback) ───────────────────────
 function detectIntent(text) {
   const t = text.toLowerCase();
-  // PTO balance — catches "how many PTO are left", "check my leave", etc.
+  // PTO balance — many natural phrasings
   if (/how (many|much).*(pto|vacation|leave|days|time.?off)/.test(t)) return 'pto_balance';
   if (/(pto|vacation|leave|time.?off).*(left|remaining|balance|have|check|see)/.test(t)) return 'pto_balance';
   if (/(check|see|show|view|what.?s|what is).*(my).*(pto|leave|vacation|balance|days)/.test(t)) return 'pto_balance';
@@ -414,16 +414,22 @@ function detectIntent(text) {
   // PTO request
   if (/\b(request|take|book|schedule|apply for|submit|want|need|like).{0,25}(pto|time.?off|vacation|leave|day.?off)\b/.test(t)) return 'request_pto';
   if (/\b(pto|time.?off|vacation|leave).{0,15}(request|apply|submit|book)\b/.test(t)) return 'request_pto';
+  if (/\b(can i|could i).{0,10}(take|have|get).{0,10}(a day|some days|time|leave|pto|vacation)\b/.test(t)) return 'request_pto';
   // PTO request status
   if (/\b(my|show|list|view|check).{0,10}(pto|leave|vacation|time.?off).{0,10}(request|status|history)\b/.test(t)) return 'my_requests';
-  if (/\b(status of my|show my).{0,10}(pto|leave|time off|request)\b/.test(t)) return 'my_requests';
+  if (/\b(status of my|show my).{0,10}(pto|leave|time.?off|request)\b/.test(t)) return 'my_requests';
+  if (/\bPTO-\d+\b/.test(text)) return 'my_requests'; // "status of PTO-1001"
+  // Profile + HR/manager
+  if (/\b(my profile|who am i|my info|my details|my account|my employee (code|id))\b/.test(t)) return 'profile';
+  if (/\b(who is my|what.?s my).{0,15}(hr|manager|boss|supervisor|lead|contact)\b/.test(t)) return 'profile';
+  if (/\b(my manager|my boss|my supervisor|my hr)\b/.test(t)) return 'profile';
   // Tickets — check
   if (/\b(my|show|list|view|open|check).{0,10}(tickets?|issues?|case)\b/.test(t)) return 'tickets';
   if (/\bticket (status|update|track)\b/.test(t)) return 'tickets';
+  if (/\bTCK-\d+\b/.test(text)) return 'tickets';
   // Ticket — create
   if (/\b(create|open|raise|submit|log|report|file).{0,10}(ticket|issue|request|bug|incident|problem)\b/.test(t)) return 'create_ticket';
-  // Profile
-  if (/\b(my profile|who am i|my info|my details|my account|my employee (code|id))\b/.test(t)) return 'profile';
+  if (/\b(broken|not working|can.?t|cannot|broken|failed).{0,20}(laptop|vpn|wifi|internet|access|password|email|system|software)\b/.test(t)) return 'create_ticket';
   // Compensation
   if (/\b(salary|compensation|my pay|how much.{0,10}(earn|make|paid|compensated))\b/.test(t)) return 'compensation';
   // Pending PTO list (HR)
@@ -431,14 +437,14 @@ function detectIntent(text) {
   // Escalate
   if (/\b(escalate|talk to|speak to|connect.{0,10}(human|person|agent)|human help|live agent)\b/.test(t)) return 'escalate';
   // Feedback
-  if (/\b(rate|feedback|thumbs|satisfied|rating)\b/.test(t)) return 'feedback';
+  if (/\b(rate|feedback|thumbs|satisfied|rating|this was|that was)\b/.test(t)) return 'feedback';
   return 'search';
 }
 
 async function resolveIntent(text) {
   const local = detectIntent(text);
   if (local !== 'search') return local;
-  // Groq router as fallback for ambiguous messages
+  // Groq router as fallback
   try {
     const res = await callTool('/webhook/tool-router', {query: text});
     if (res.classification === 'action') {
@@ -451,23 +457,78 @@ async function resolveIntent(text) {
       };
       if (res.tool && map[res.tool]) return map[res.tool];
     }
+    if (res.classification === 'off_topic') return 'off_topic';
+    if (res.classification === 'smalltalk') return 'smalltalk';
   } catch(e) {}
   return 'search';
 }
 
-// ── Date extractor for PTO requests ──────────────────────────────────────────
+// ── Date extractor — handles ISO and natural language ──────────────────────
 function extractDates(text) {
-  const iso = text.match(/\d{4}-\d{2}-\d{2}/g);
-  if (iso && iso.length >= 2) return {start: iso[0], end: iso[1]};
-  if (iso && iso.length === 1) return {start: iso[0], end: iso[0]};
+  const MONTHS = {
+    jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
+    january:1,february:2,march:3,april:4,june:6,july:7,august:8,september:9,
+    october:10,november:11,december:12
+  };
+  const now = new Date();
+  const curY = now.getFullYear(), curM = now.getMonth()+1, curD = now.getDate();
+  const toISO = (y,m,d) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const yr = (m) => m < curM ? curY+1 : curY;
+
+  // ISO format: 2026-12-10
+  const isos = text.match(/\b\d{4}-\d{2}-\d{2}\b/g);
+  if (isos && isos.length >= 2) return {start:isos[0], end:isos[1]};
+  if (isos && isos.length === 1) return {start:isos[0], end:isos[0]};
+
+  const t = text.toLowerCase();
+
+  // "today" / "tomorrow"
+  if (/\btoday\b/.test(t)) { const d=toISO(curY,curM,curD); return {start:d,end:d}; }
+  if (/\btomorrow\b/.test(t)) {
+    const tom=new Date(now); tom.setDate(curD+1);
+    const d=toISO(tom.getFullYear(),tom.getMonth()+1,tom.getDate());
+    return {start:d,end:d};
+  }
+
+  const MN = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+  const DN = '(\\d{1,2})(?:st|nd|rd|th)?';
+  const SEP = '(?:\\s*(?:to|through|thru|and|-)\\s*)';
+
+  // "Nov 6 to Nov 8"
+  const r1 = t.match(new RegExp(MN+'\\s+'+DN+SEP+MN+'\\s+'+DN));
+  if (r1) {
+    const m1=MONTHS[r1[1].slice(0,3)], m2=MONTHS[r1[3].slice(0,3)];
+    return {start:toISO(yr(m1),m1,+r1[2]), end:toISO(yr(m2),m2,+r1[4])};
+  }
+  // "Nov 6 to 8" or "Nov 6-8" (same month)
+  const r2 = t.match(new RegExp(MN+'\\s+'+DN+SEP+DN));
+  if (r2) {
+    const m=MONTHS[r2[1].slice(0,3)];
+    return {start:toISO(yr(m),m,+r2[2]), end:toISO(yr(m),m,+r2[3])};
+  }
+  // Single "Nov 6th"
+  const r3 = t.match(new RegExp(MN+'\\s+'+DN));
+  if (r3) {
+    const m=MONTHS[r3[1].slice(0,3)];
+    return {start:toISO(yr(m),m,+r3[2]), end:toISO(yr(m),m,+r3[2])};
+  }
   return null;
 }
 
 function inferCategory(text) {
   const t = text.toLowerCase();
-  if (/\b(hr|payroll|benefits|performance|harassment)\b/.test(t)) return 'hr';
-  if (/\b(facilities|office|room|furniture|parking)\b/.test(t)) return 'facilities';
+  if (/\b(hr|payroll|benefits|performance|harassment|leave|contract)\b/.test(t)) return 'hr';
+  if (/\b(facilities|office|room|furniture|parking|cleaning)\b/.test(t)) return 'facilities';
   return 'it';
+}
+
+function inferFeedbackRating(text) {
+  const t = text.toLowerCase();
+  const pos = /\b(good|great|helpful|love|excellent|perfect|amazing|awesome|thumbs up|yes|thank|thanks|worked)\b/.test(t);
+  const neg = /\b(bad|wrong|unhelpful|terrible|awful|not helpful|thumbs down|no|didn.?t work|broken|useless)\b/.test(t);
+  if (pos && !neg) return 1;
+  if (neg && !pos) return -1;
+  return 1; // default to positive if ambiguous
 }
 
 // ── Tool caller ───────────────────────────────────────────────────────────────
@@ -514,12 +575,22 @@ function formatToolResponse(intent, data) {
     }
     case 'create_ticket':
       return data.ticket_code || data.code
-        ? `Ticket ${data.ticket_code||data.code} created. We'll look into it.`
+        ? `Ticket ${data.ticket_code||data.code} created. We'll follow up with you.`
         : JSON.stringify(data);
+    case 'escalate':
+      return data.ticket_code || data.code
+        ? `Escalated to a human agent. Ticket ${data.ticket_code||data.code} is now open — someone will be in touch shortly.`
+        : (data.message || 'Escalated to a human agent.');
     case 'compensation':
       return data.base_salary
         ? `${data.full_name||''}: ${data.currency||'USD'} ${Number(data.base_salary).toLocaleString()} / year`
         : JSON.stringify(data);
+    case 'feedback':
+      return data.message || (data.rating === 1 || data.rating > 0 ? 'Thanks for the positive feedback!' : 'Thanks for the feedback — we\'ll use it to improve.');
+    case 'request_pto':
+      return data.code
+        ? `PTO request ${data.code} submitted (${data.start_date} to ${data.end_date}). Your manager has been notified by email.`
+        : (data.message || JSON.stringify(data));
     case 'search':
       return data.answer || data.text || JSON.stringify(data);
     default:
@@ -551,26 +622,55 @@ async function sendMsg(text) {
       data = await callTool('/webhook/tool-list-pending-pto', {});
     } else if (intent === 'escalate') {
       data = await callTool('/webhook/tool-escalate-to-human', {summary: text});
-    } else if (intent === 'compensation') {
-      data = await callTool('/webhook/tool-get-compensation', {employee_name_or_code: text});
+    } else if (intent === 'off_topic') {
+      thinking.remove();
+      addBotMsg("I'm AskOps, your IT and HR assistant. I can help with PTO, company policies, IT tickets, and benefits — but that topic is outside my scope. What can I help you with at work?");
+      pollMetrics();
+      isBusy = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+      return;
+    } else if (intent === 'smalltalk') {
+      thinking.remove();
+      const replies = [
+        "Happy to help! What can I assist you with today — PTO, a policy question, or an IT ticket?",
+        "Hello! I'm AskOps, your IT and HR assistant. What do you need?",
+        "Thanks! Is there anything work-related I can help with — time off, benefits, or a support ticket?",
+      ];
+      addBotMsg(replies[Math.floor(Math.abs(text.length) % replies.length)]);
+      pollMetrics();
+      isBusy = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+      return;
     } else if (intent === 'feedback') {
-      const rating = /\b(good|great|helpful|love|excellent|perfect|thumbs up)\b/.test(text.toLowerCase()) ? 1 : -1;
+      const rating = inferFeedbackRating(text);
       data = await callTool('/webhook/tool-submit-feedback', {rating, comment: text});
     } else if (intent === 'request_pto') {
       const dates = extractDates(text);
       if (dates) {
-        const reason = text.replace(/\d{4}-\d{2}-\d{2}/g,'').replace(/\b(request|pto|time off|vacation|leave|for|from|to|want|need|like|take|book)\b/gi,'').trim() || 'Personal time off';
+        const reason = text
+          .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '')
+          .replace(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?/gi, '')
+          .replace(/\b(request(?:ing)?|pto|time\s*off|vacation|leave|for|from|to|through|thru|and|want|need|would like|like|take|book|schedule|apply|submit)\b/gi, '')
+          .replace(/\s+/g, ' ').trim() || 'Personal time off';
         data = await callTool('/webhook/tool-request-pto', {start_date: dates.start, end_date: dates.end, reason});
       } else {
-        data = {message: 'I can submit a PTO request. Please include the start and end dates.\n\nExample: "Request PTO from 2026-12-10 to 2026-12-12 for the holidays"'};
+        data = {message: 'I can submit a PTO request. Please include the dates.\n\nExamples:\n• "Request PTO Nov 6th"\n• "Take time off November 10 to 12 for a family event"\n• "PTO from 2026-12-10 to 2026-12-12 for the holidays"'};
       }
     } else if (intent === 'create_ticket') {
+      const prio = /\b(urgent|asap|immediately|critical|broken|can.?t work|not working)\b/i.test(text) ? 'urgent' : 'normal';
       data = await callTool('/webhook/tool-create-ticket', {
         category: inferCategory(text),
         title: text.slice(0, 80),
         description: text,
-        priority: 'normal'
+        priority: prio
       });
+    } else if (intent === 'compensation') {
+      // Try to extract a name or code from the text
+      const nameMatch = text.match(/\b(EMP-\d+)\b/i) || text.match(/(?:salary|compensation|pay)\s+(?:of\s+|for\s+)?([A-Z][a-z]+ [A-Z][a-z]+)/);
+      const empArg = nameMatch ? nameMatch[1] || nameMatch[2] : text;
+      data = await callTool('/webhook/tool-get-compensation', {employee_name_or_code: empArg});
     } else {
       const res = await callTool('/webhook/tool-search-kb', {query: text});
       data = res;

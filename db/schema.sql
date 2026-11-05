@@ -7,6 +7,7 @@
 -- =====================================================================
 
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ---------------------------------------------------------------------
 -- Workspaces: one per "company" set up on page 1. Auto-expire after 24h.
