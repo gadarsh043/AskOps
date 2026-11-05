@@ -1,0 +1,203 @@
+{
+  "updatedAt": "2026-11-05T09:02:36.389Z",
+  "createdAt": "2026-11-05T08:49:39.000Z",
+  "id": "tDwFgPVfLoBRsDzQ",
+  "name": "cron.cleanup",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "cron-sched",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cron-pg",
+      "name": "Delete Expired",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT delete_expired_workspaces() AS deleted_count",
+        "options": {}
+      }
+    },
+    {
+      "id": "cron-log",
+      "name": "Log Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconsole.log('Cleanup: deleted', r.deleted_count, 'expired workspace(s)');\nreturn [{ json: r }];"
+      }
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Delete Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Expired": {
+      "main": [
+        [
+          {
+            "node": "Log Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": {
+    "node:Every Hour": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "pinData": null,
+  "versionId": "b2434e53-dad1-437a-9a36-89914cf80e7d",
+  "activeVersionId": "b2434e53-dad1-437a-9a36-89914cf80e7d",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T08:49:39.001Z",
+      "createdAt": "2026-11-05T08:49:39.001Z",
+      "role": "workflow:owner",
+      "workflowId": "tDwFgPVfLoBRsDzQ",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T08:49:39.003Z",
+    "createdAt": "2026-11-05T08:49:39.003Z",
+    "versionId": "b2434e53-dad1-437a-9a36-89914cf80e7d",
+    "workflowId": "tDwFgPVfLoBRsDzQ",
+    "nodes": [
+      {
+        "id": "cron-sched",
+        "name": "Every Hour",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "hours",
+                "minutesInterval": 1
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "cron-pg",
+        "name": "Delete Expired",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT delete_expired_workspaces() AS deleted_count",
+          "options": {}
+        }
+      },
+      {
+        "id": "cron-log",
+        "name": "Log Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json;\nconsole.log('Cleanup: deleted', r.deleted_count, 'expired workspace(s)');\nreturn [{ json: r }];"
+        }
+      }
+    ],
+    "connections": {
+      "Every Hour": {
+        "main": [
+          [
+            {
+              "node": "Delete Expired",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delete Expired": {
+        "main": [
+          [
+            {
+              "node": "Log Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}

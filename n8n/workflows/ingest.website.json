@@ -1,0 +1,671 @@
+{
+  "updatedAt": "2026-11-05T09:02:36.438Z",
+  "createdAt": "2026-11-05T08:49:39.041Z",
+  "id": "ltWeFOzNMrZ1DxxK",
+  "name": "ingest.website",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "ing-wh",
+      "name": "Ingest Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "askops-ingest-website",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ingest/website",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "ing-val",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst wsId  = body.workspace_id;\nconst rawUrl = (body.url || '').trim().replace(/\\/+$/, '');\nif (!wsId || !rawUrl) throw new Error('workspace_id and url are required');\n\n// Normalise: ensure https://\nconst url = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;\n\nreturn [{ json: { workspace_id: wsId, base_url: url, _start_at: Date.now() } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ing-prep",
+      "name": "Prep Jina URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst jinaUrl = 'https://r.jina.ai/' + item.base_url;\nreturn [{ json: { ...item, jina_url: jinaUrl } }];"
+      }
+    },
+    {
+      "id": "ing-jina",
+      "name": "Jina Fetch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.jina_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "text/plain"
+            },
+            {
+              "name": "X-Return-Format",
+              "value": "markdown"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ing-ext",
+      "name": "Extract Chunks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst content = $input.first().json.data || $input.first().json.body || '';\nconst wsId = $('Validate Input').first().json.workspace_id;\nconst baseUrl = $('Validate Input').first().json.base_url;\n\n// Chunk the content: ~800 chars with 100 overlap, keeping paragraphs\nfunction chunkText(text, maxLen=800, overlap=100) {\n  const paras = text.split(/\\n\\n+/).filter(p => p.trim().length > 20);\n  const chunks = [];\n  let cur = '';\n  for (const p of paras) {\n    if (cur.length + p.length + 2 > maxLen && cur.length > 0) {\n      chunks.push(cur.trim());\n      // overlap: keep last paragraph\n      cur = cur.split('\\n\\n').slice(-1)[0] + '\\n\\n' + p;\n    } else {\n      cur = cur ? cur + '\\n\\n' + p : p;\n    }\n  }\n  if (cur.trim().length > 0) chunks.push(cur.trim());\n  return chunks;\n}\n\nconst chunks = chunkText(content, 800, 100).slice(0, 20); // cap at 20 chunks per page\nreturn chunks.map((c, i) => ({ json: {\n  workspace_id: wsId,\n  base_url: baseUrl,\n  source_url: baseUrl,\n  chunk_index: i,\n  content: c,\n  total_chunks: chunks.length\n} }));"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ing-emb",
+      "name": "Embed Chunk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "emzXNUHrKp6cIn1O",
+          "name": "AskOps Gemini"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":$json.content}]},\"taskType\":\"RETRIEVAL_DOCUMENT\",\"outputDimensionality\":768}) }}",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ing-femb",
+      "name": "Format Embedding",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst vals = item.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embed error: no values from Gemini');\nconst vec = '[' + vals.join(',') + ']';\nconst ctx = $('Extract Chunks').first().json;\n// $('Extract Chunks') may reference wrong item in loop; use current item fields\nreturn [{ json: {\n  workspace_id: ctx.workspace_id || item.workspace_id,\n  base_url:     ctx.base_url     || item.base_url,\n  source_url:   ctx.source_url   || item.source_url,\n  chunk_index:  ctx.chunk_index  ?? item.chunk_index ?? 0,\n  content:      ctx.content      || item.content,\n  embedding_str: vec\n} }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ing-pg",
+      "name": "Store Chunk",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ins_doc AS (\n  INSERT INTO documents (workspace_id, source_type, title, source_url, content)\n  VALUES (\n    '{{ $json.workspace_id }}'::uuid,\n    'website',\n    'Website: {{ $json.base_url }}',\n    '{{ $json.source_url }}',\n    '{{ $json.content.substring(0,200).replace(/'/g, \"''\") }}...'\n  )\n  ON CONFLICT DO NOTHING\n  RETURNING id\n),\ndoc_id AS (\n  SELECT id FROM ins_doc\n  UNION ALL\n  SELECT id FROM documents\n   WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n     AND source_url   = '{{ $json.source_url }}'\n     AND source_type  = 'website'\n   LIMIT 1\n)\nINSERT INTO chunks (document_id, workspace_id, chunk_index, content, embedding)\nVALUES (\n  (SELECT id FROM doc_id LIMIT 1),\n  '{{ $json.workspace_id }}'::uuid,\n  {{ $json.chunk_index }},\n  '{{ $json.content.replace(/'/g, \"''\") }}',\n  '{{ $json.embedding_str }}'::vector\n)\nON CONFLICT DO NOTHING\nRETURNING id::text",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ing-done",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const count = $input.all().length;\nreturn [{ json: { status: 'done', chunks_stored: count, message: 'Ingestion complete.' } }];"
+      }
+    },
+    {
+      "id": "ing-err",
+      "name": "Ingest Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        220
+      ],
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst msg = e.message || e.error?.description || 'Ingest failed';\nreturn [{ json: { status: 'error', error: msg } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Ingest Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Prep Jina URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Jina URL": {
+      "main": [
+        [
+          {
+            "node": "Jina Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jina Fetch": {
+      "main": [
+        [
+          {
+            "node": "Extract Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Chunks": {
+      "main": [
+        [
+          {
+            "node": "Embed Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Chunk": {
+      "main": [
+        [
+          {
+            "node": "Format Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Embedding": {
+      "main": [
+        [
+          {
+            "node": "Store Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Chunk": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "fc574a16-1a78-48ba-9ae1-37de78ade6fa",
+  "activeVersionId": "fc574a16-1a78-48ba-9ae1-37de78ade6fa",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T08:49:39.042Z",
+      "createdAt": "2026-11-05T08:49:39.042Z",
+      "role": "workflow:owner",
+      "workflowId": "ltWeFOzNMrZ1DxxK",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T08:49:39.043Z",
+    "createdAt": "2026-11-05T08:49:39.043Z",
+    "versionId": "fc574a16-1a78-48ba-9ae1-37de78ade6fa",
+    "workflowId": "ltWeFOzNMrZ1DxxK",
+    "nodes": [
+      {
+        "id": "ing-wh",
+        "name": "Ingest Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "askops-ingest-website",
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "ingest/website",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "ing-val",
+        "name": "Validate Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst wsId  = body.workspace_id;\nconst rawUrl = (body.url || '').trim().replace(/\\/+$/, '');\nif (!wsId || !rawUrl) throw new Error('workspace_id and url are required');\n\n// Normalise: ensure https://\nconst url = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;\n\nreturn [{ json: { workspace_id: wsId, base_url: url, _start_at: Date.now() } }];"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "ing-prep",
+        "name": "Prep Jina URL",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst jinaUrl = 'https://r.jina.ai/' + item.base_url;\nreturn [{ json: { ...item, jina_url: jinaUrl } }];"
+        }
+      },
+      {
+        "id": "ing-jina",
+        "name": "Jina Fetch",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          660,
+          0
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $json.jina_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Accept",
+                "value": "text/plain"
+              },
+              {
+                "name": "X-Return-Format",
+                "value": "markdown"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "text"
+              }
+            }
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "ing-ext",
+        "name": "Extract Chunks",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst content = $input.first().json.data || $input.first().json.body || '';\nconst wsId = $('Validate Input').first().json.workspace_id;\nconst baseUrl = $('Validate Input').first().json.base_url;\n\n// Chunk the content: ~800 chars with 100 overlap, keeping paragraphs\nfunction chunkText(text, maxLen=800, overlap=100) {\n  const paras = text.split(/\\n\\n+/).filter(p => p.trim().length > 20);\n  const chunks = [];\n  let cur = '';\n  for (const p of paras) {\n    if (cur.length + p.length + 2 > maxLen && cur.length > 0) {\n      chunks.push(cur.trim());\n      // overlap: keep last paragraph\n      cur = cur.split('\\n\\n').slice(-1)[0] + '\\n\\n' + p;\n    } else {\n      cur = cur ? cur + '\\n\\n' + p : p;\n    }\n  }\n  if (cur.trim().length > 0) chunks.push(cur.trim());\n  return chunks;\n}\n\nconst chunks = chunkText(content, 800, 100).slice(0, 20); // cap at 20 chunks per page\nreturn chunks.map((c, i) => ({ json: {\n  workspace_id: wsId,\n  base_url: baseUrl,\n  source_url: baseUrl,\n  chunk_index: i,\n  content: c,\n  total_chunks: chunks.length\n} }));"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "ing-emb",
+        "name": "Embed Chunk",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1100,
+          0
+        ],
+        "credentials": {
+          "httpQueryAuth": {
+            "id": "emzXNUHrKp6cIn1O",
+            "name": "AskOps Gemini"
+          }
+        },
+        "parameters": {
+          "method": "POST",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpQueryAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":$json.content}]},\"taskType\":\"RETRIEVAL_DOCUMENT\",\"outputDimensionality\":768}) }}",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "ing-femb",
+        "name": "Format Embedding",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1320,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst vals = item.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embed error: no values from Gemini');\nconst vec = '[' + vals.join(',') + ']';\nconst ctx = $('Extract Chunks').first().json;\n// $('Extract Chunks') may reference wrong item in loop; use current item fields\nreturn [{ json: {\n  workspace_id: ctx.workspace_id || item.workspace_id,\n  base_url:     ctx.base_url     || item.base_url,\n  source_url:   ctx.source_url   || item.source_url,\n  chunk_index:  ctx.chunk_index  ?? item.chunk_index ?? 0,\n  content:      ctx.content      || item.content,\n  embedding_str: vec\n} }];"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "ing-pg",
+        "name": "Store Chunk",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1540,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "WITH ins_doc AS (\n  INSERT INTO documents (workspace_id, source_type, title, source_url, content)\n  VALUES (\n    '{{ $json.workspace_id }}'::uuid,\n    'website',\n    'Website: {{ $json.base_url }}',\n    '{{ $json.source_url }}',\n    '{{ $json.content.substring(0,200).replace(/'/g, \"''\") }}...'\n  )\n  ON CONFLICT DO NOTHING\n  RETURNING id\n),\ndoc_id AS (\n  SELECT id FROM ins_doc\n  UNION ALL\n  SELECT id FROM documents\n   WHERE workspace_id = '{{ $json.workspace_id }}'::uuid\n     AND source_url   = '{{ $json.source_url }}'\n     AND source_type  = 'website'\n   LIMIT 1\n)\nINSERT INTO chunks (document_id, workspace_id, chunk_index, content, embedding)\nVALUES (\n  (SELECT id FROM doc_id LIMIT 1),\n  '{{ $json.workspace_id }}'::uuid,\n  {{ $json.chunk_index }},\n  '{{ $json.content.replace(/'/g, \"''\") }}',\n  '{{ $json.embedding_str }}'::vector\n)\nON CONFLICT DO NOTHING\nRETURNING id::text",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "ing-done",
+        "name": "Done",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1760,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const count = $input.all().length;\nreturn [{ json: { status: 'done', chunks_stored: count, message: 'Ingestion complete.' } }];"
+        }
+      },
+      {
+        "id": "ing-err",
+        "name": "Ingest Error",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          220
+        ],
+        "parameters": {
+          "jsCode": "const e = $input.first().json;\nconst msg = e.message || e.error?.description || 'Ingest failed';\nreturn [{ json: { status: 'error', error: msg } }];"
+        }
+      }
+    ],
+    "connections": {
+      "Ingest Webhook": {
+        "main": [
+          [
+            {
+              "node": "Validate Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Input": {
+        "main": [
+          [
+            {
+              "node": "Prep Jina URL",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prep Jina URL": {
+        "main": [
+          [
+            {
+              "node": "Jina Fetch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Jina Fetch": {
+        "main": [
+          [
+            {
+              "node": "Extract Chunks",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Chunks": {
+        "main": [
+          [
+            {
+              "node": "Embed Chunk",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Embed Chunk": {
+        "main": [
+          [
+            {
+              "node": "Format Embedding",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Embedding": {
+        "main": [
+          [
+            {
+              "node": "Store Chunk",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store Chunk": {
+        "main": [
+          [
+            {
+              "node": "Done",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ingest Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}

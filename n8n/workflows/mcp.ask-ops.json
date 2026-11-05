@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-05T08:15:41.380Z",
+  "updatedAt": "2026-11-05T09:02:36.175Z",
   "createdAt": "2026-11-05T06:14:41.592Z",
   "id": "qhmoB9pZdLav12FB",
   "name": "mcp.ask-ops",
@@ -2346,6 +2346,462 @@
           }
         }
       }
+    },
+    {
+      "id": "wh-14",
+      "name": "Webhook 14",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        6665
+      ],
+      "webhookId": "askops-tool-search-kb",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tool-search-kb",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "nm-14",
+      "name": "Normalize Input 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item.body ?? item;\nreturn [{ json: { ...body, _tool: 'search_kb', _start_at: Date.now() } }];"
+      }
+    },
+    {
+      "id": "gi-14",
+      "name": "Get Identity 14",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        6610
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM current_identity()",
+        "options": {}
+      }
+    },
+    {
+      "id": "skb-pemb-14",
+      "name": "Prep Embed 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const id = $('Get Identity 14').first().json;\nconst q  = $('Normalize Input 14').first().json.query;\nif (!q || !q.trim()) throw new Error('search_kb: query is required');\nreturn [{ json: { ...id, query: q.trim() } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-emb-14",
+      "name": "Embed Query 14",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        6610
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "emzXNUHrKp6cIn1O",
+          "name": "AskOps Gemini"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":$json.query}]},\"taskType\":\"RETRIEVAL_QUERY\",\"outputDimensionality\":768}) }}",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-femb-14",
+      "name": "Format Embedding 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const id = $('Get Identity 14').first().json;\nconst q  = $('Prep Embed 14').first().json.query;\nconst vals = $input.first().json.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embedding error: Gemini returned no values');\nconst vec = '[' + vals.join(',') + ']';\nreturn [{ json: { ...id, query: q, embedding_str: vec } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-lkc-14",
+      "name": "Lookup Cache 14",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1320,
+        6610
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(json_agg(c), '[]'::json) AS cache_result\nFROM (\n  SELECT cache_id, answer, sources::text\n  FROM lookup_cache(\n    '{{ $json.workspace_id }}'::uuid,\n    '{{ $json.access_role }}',\n    '{{ $json.embedding_str }}'::vector\n  )\n) c",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-ec-14",
+      "name": "Eval Cache 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst id  = $('Get Identity 14').first().json;\nconst q   = $('Prep Embed 14').first().json.query;\nconst emb = $('Format Embedding 14').first().json.embedding_str;\nconst arr = Array.isArray(item.cache_result) ? item.cache_result\n  : (typeof item.cache_result === 'string' ? JSON.parse(item.cache_result || '[]') : []);\nconst hit = arr.length > 0;\nconst cached = arr[0] || null;\nreturn [{ json: {\n  ...id, query: q, embedding_str: emb,\n  cache_hit:    hit,\n  cache_id:     cached ? cached.cache_id  : null,\n  cache_answer: cached ? cached.answer    : null,\n  cache_sources: cached ? cached.sources  : null,\n} }];"
+      }
+    },
+    {
+      "id": "skb-ifc-14",
+      "name": "Cache Hit IF 14",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        6610
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "ifc-cond-14",
+              "leftValue": "={{ $json.cache_hit }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "name": "boolean:true",
+                "rightType": "any",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "skb-hr-14",
+      "name": "Build Hit Response 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst sources = typeof item.cache_sources === 'string'\n  ? JSON.parse(item.cache_sources || '[]')\n  : (Array.isArray(item.cache_sources) ? item.cache_sources : []);\nconst srcList = sources.map(s => s.title ? s.title + ' (' + s.source_type + ')' : (s.source_type || '')).join(', ');\nconst q = $('Prep Embed 14').first().json.query;\nconst out = {\n  answer: item.cache_answer,\n  sources,\n  source_citation: srcList ? 'Source: ' + srcList : null,\n  cache_hit: true\n};\nreturn [{ json: { ...item, ...out, _out: out, _tool_name: 'search_kb',\n  _in: { query: q }, _status: 'success', _error: null } }];"
+      }
+    },
+    {
+      "id": "skb-mc-14",
+      "name": "Match Chunks 14",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1980,
+        6830
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(json_agg(c), '[]'::json) AS chunks_data\nFROM (\n  SELECT chunk_id, title, source_type, source_url, content\n  FROM match_chunks(\n    '{{ $json.workspace_id }}'::uuid,\n    '{{ $json.embedding_str }}'::vector,\n    5,\n    0.5\n  )\n) c",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-eck-14",
+      "name": "Eval Chunks 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        6830
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst id  = $('Get Identity 14').first().json;\nconst q   = $('Prep Embed 14').first().json.query;\nconst emb = $('Format Embedding 14').first().json.embedding_str;\nconst chunks = Array.isArray(item.chunks_data) ? item.chunks_data\n  : (typeof item.chunks_data === 'string' ? JSON.parse(item.chunks_data || '[]') : []);\nreturn [{ json: {\n  ...id, query: q, embedding_str: emb,\n  chunks_data:  chunks,\n  chunks_count: chunks.length,\n  has_chunks:   chunks.length > 0,\n  no_chunks:    chunks.length === 0\n} }];"
+      }
+    },
+    {
+      "id": "skb-ifnck-14",
+      "name": "No Chunks IF 14",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        6830
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "ifnck-cond-14",
+              "leftValue": "={{ $json.no_chunks }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "name": "boolean:true",
+                "rightType": "any",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "skb-nck-14",
+      "name": "Build No-Chunks Response 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const q   = $('Prep Embed 14').first().json.query;\nconst id  = $('Get Identity 14').first().json;\nconst out = {\n  answer: \"I don't have information about that in the knowledge base yet. Try asking a more general question, or contact your HR/IT team directly.\",\n  sources: [],\n  source_citation: null,\n  cache_hit: false\n};\nreturn [{ json: { ...id, ...out, _out: out, _tool_name: 'search_kb',\n  _in: { query: q }, _status: 'success', _error: null } }];"
+      }
+    },
+    {
+      "id": "skb-gp-14",
+      "name": "Build Groq Prompt 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        6830
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst id   = $('Get Identity 14').first().json;\nconst chunks = Array.isArray(item.chunks_data) ? item.chunks_data\n  : JSON.parse(item.chunks_data || '[]');\nconst ctx = chunks.map((c, i) =>\n  '[' + (i+1) + '] ' + (c.title||'') + ' (' + (c.source_type||'') + '):' + c.content\n).join('\\n\\n');\nconst sys = 'You are a helpful IT/HR service desk assistant for ' + id.company_name + '.\\n'\n  + 'Answer based ONLY on the provided context. Be concise and professional.\\n'\n  + \"If the context doesn't contain the answer, say \\\"I don't have that information.\\\".\\n\"\n  + 'Always end with the source type in parentheses: (Source: website/upload/sample).';\nconst usr = 'Context:\\n' + ctx + '\\n\\nQuestion: ' + item.query + '\\nAnswer:';\nconst groqBody = JSON.stringify({\n  model: 'openai/gpt-oss-120b',\n  messages: [{role:'system',content:sys},{role:'user',content:usr}],\n  max_tokens: 400,\n  temperature: 0.1\n});\nreturn [{ json: { ...item, chunks_data: chunks, groq_body: groqBody } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-groq-14",
+      "name": "Groq LLM 14",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        6830
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AxtE0phNFpQkBki9",
+          "name": "AskOps Groq"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.groq_body }}",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-lr-14",
+      "name": "Build LLM Response 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        6830
+      ],
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst ctx  = $('Build Groq Prompt 14').first().json;\nconst esc  = s => s == null ? null : String(s).replace(/'/g, \"''\");\nconst answer = resp.choices?.[0]?.message?.content || \"I could not generate an answer. Please try again.\";\nconst chunks  = Array.isArray(ctx.chunks_data) ? ctx.chunks_data : JSON.parse(ctx.chunks_data || '[]');\nconst sources = chunks.map(c => ({ title: c.title, source_type: c.source_type, url: c.source_url || null }));\nreturn [{ json: {\n  ...ctx,\n  answer,\n  answer_esc:   esc(answer),\n  question_esc: esc(ctx.query),\n  sources_jsonb: JSON.stringify(sources)\n} }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-wc-14",
+      "name": "Write Cache 14",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3300,
+        6830
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO semantic_cache\n  (workspace_id, access_role, question, question_embedding, answer, sources)\nVALUES (\n  '{{ $json.workspace_id }}'::uuid,\n  '{{ $json.access_role }}',\n  '{{ $json.question_esc }}',\n  '{{ $json.embedding_str }}'::vector,\n  '{{ $json.answer_esc }}',\n  '{{ $json.sources_jsonb }}'::jsonb\n)\nRETURNING id::text AS cache_id",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "skb-fmt-14",
+      "name": "Format SKB Answer 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        6830
+      ],
+      "parameters": {
+        "jsCode": "const lr = $('Build LLM Response 14').first().json;\nconst chunks  = Array.isArray(lr.chunks_data) ? lr.chunks_data : JSON.parse(lr.chunks_data || '[]');\nconst sources = chunks.map(c => ({ title: c.title, source_type: c.source_type, url: c.source_url }));\nconst srcList = [...new Set(chunks.map(c => c.source_type))].join(', ');\nconst out = {\n  answer: lr.answer,\n  sources,\n  source_citation: srcList ? 'Source: ' + srcList : null,\n  cache_hit: false\n};\nreturn [{ json: { ...lr, ...out, _out: out, _tool_name: 'search_kb',\n  _in: { query: lr.query }, _status: 'success', _error: null } }];"
+      }
+    },
+    {
+      "id": "pl-14",
+      "name": "Prepare Log 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst id = $('Get Identity 14').first().json;\nconst start = $('Normalize Input 14').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  ...d._out,\n  _lws:  id.workspace_id,\n  _lemp: id.employee_id ?? null,\n  _ltool: d._tool_name,\n  _lin:  esc(JSON.stringify(d._in  ?? {})),\n  _lout: d._out != null ? esc(JSON.stringify(d._out)) : null,\n  _lst:  d._status,\n  _lerr: esc(d._error) ?? null,\n  _llat: Date.now() - start\n}}];"
+      }
+    },
+    {
+      "id": "lg-14",
+      "name": "Log Tool Call 14",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3960,
+        6610
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tool_calls\n  (workspace_id, employee_id, tool_name, input, output, status, error, latency_ms)\nVALUES (\n  '{{ $json._lws }}'::uuid,\n  {{ $json._lemp ? \"'\" + $json._lemp + \"'\" : 'NULL' }}::uuid,\n  '{{ $json._ltool }}',\n  '{{ $json._lin }}'::jsonb,\n  {{ $json._lout ? \"'\" + $json._lout + \"'\" : 'NULL' }}::jsonb,\n  '{{ $json._lst }}',\n  {{ $json._lerr ? \"'\" + $json._lerr + \"'\" : 'NULL' }},\n  {{ $json._llat }}::integer\n)\nRETURNING id",
+        "options": {}
+      }
+    },
+    {
+      "id": "ro-14",
+      "name": "Return Output 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4180,
+        6610
+      ],
+      "parameters": {
+        "jsCode": "const d = $('Prepare Log 14').first().json;\nconst clean = Object.fromEntries(Object.entries(d).filter(([k]) => !k.startsWith('_l')));\nreturn [{ json: clean }];"
+      }
+    },
+    {
+      "id": "he-14",
+      "name": "Handle Error 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        6830
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Tool error').replace(/\\s*\\[line \\d+\\]$/, '');\nlet status = 'error';\nlet friendly = msg;\nconst m = msg.match(/^([A-Z_]+):\\s*(.*)/s);\nconst code = m?.[1];\nconst rest = m?.[2] || msg;\nconst codeMap = {\n  ACCESS_DENIED:        ['denied', 'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',  'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',  'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',  'This request has already been decided.'],\n  INVALID_LINK:         ['error',  'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n} else if (code) {\n  friendly = rest;\n}\nconst id = $('Get Identity 14').first().json;\nconst start = $('Normalize Input 14').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input 14').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
+      }
+    },
+    {
+      "id": "le-14",
+      "name": "Log Error 14",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        6830
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tool_calls\n  (workspace_id, employee_id, tool_name, input, output, status, error, latency_ms)\nVALUES (\n  '{{ $json._lws }}'::uuid,\n  {{ $json._lemp ? \"'\" + $json._lemp + \"'\" : 'NULL' }}::uuid,\n  '{{ $json._ltool }}',\n  '{{ $json._lin }}'::jsonb,\n  {{ $json._lout ? \"'\" + $json._lout + \"'\" : 'NULL' }}::jsonb,\n  '{{ $json._lst }}',\n  {{ $json._lerr ? \"'\" + $json._lerr + \"'\" : 'NULL' }},\n  {{ $json._llat }}::integer\n)\nRETURNING id",
+        "options": {}
+      }
+    },
+    {
+      "id": "re-14",
+      "name": "Return Error 14",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        6830
+      ],
+      "parameters": {
+        "jsCode": "const d = $('Handle Error 14').first().json;\nreturn [{ json: { error: d.error } }];"
+      }
     }
   ],
   "connections": {
@@ -3760,6 +4216,336 @@
           }
         ]
       ]
+    },
+    "Webhook 14": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input 14": {
+      "main": [
+        [
+          {
+            "node": "Get Identity 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Identity 14": {
+      "main": [
+        [
+          {
+            "node": "Prep Embed 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Embed 14": {
+      "main": [
+        [
+          {
+            "node": "Embed Query 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Query 14": {
+      "main": [
+        [
+          {
+            "node": "Format Embedding 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Embedding 14": {
+      "main": [
+        [
+          {
+            "node": "Lookup Cache 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Cache 14": {
+      "main": [
+        [
+          {
+            "node": "Eval Cache 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eval Cache 14": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit IF 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Hit IF 14": {
+      "main": [
+        [
+          {
+            "node": "Build Hit Response 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Match Chunks 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Hit Response 14": {
+      "main": [
+        [
+          {
+            "node": "Prepare Log 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Chunks 14": {
+      "main": [
+        [
+          {
+            "node": "Eval Chunks 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eval Chunks 14": {
+      "main": [
+        [
+          {
+            "node": "No Chunks IF 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Chunks IF 14": {
+      "main": [
+        [
+          {
+            "node": "Build No-Chunks Response 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Groq Prompt 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build No-Chunks Response 14": {
+      "main": [
+        [
+          {
+            "node": "Prepare Log 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Groq Prompt 14": {
+      "main": [
+        [
+          {
+            "node": "Groq LLM 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq LLM 14": {
+      "main": [
+        [
+          {
+            "node": "Build LLM Response 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build LLM Response 14": {
+      "main": [
+        [
+          {
+            "node": "Write Cache 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Cache 14": {
+      "main": [
+        [
+          {
+            "node": "Format SKB Answer 14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format SKB Answer 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format SKB Answer 14": {
+      "main": [
+        [
+          {
+            "node": "Prepare Log 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Log 14": {
+      "main": [
+        [
+          {
+            "node": "Log Tool Call 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Tool Call 14": {
+      "main": [
+        [
+          {
+            "node": "Return Output 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Error 14": {
+      "main": [
+        [
+          {
+            "node": "Log Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error 14": {
+      "main": [
+        [
+          {
+            "node": "Return Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -3770,9 +4556,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "2bbd80b5-a426-4551-93cb-79f8e1e2a806",
-  "activeVersionId": "2bbd80b5-a426-4551-93cb-79f8e1e2a806",
-  "triggerCount": 13,
+  "versionId": "ffbc6c87-f120-4533-8c30-b496a9503965",
+  "activeVersionId": "ffbc6c87-f120-4533-8c30-b496a9503965",
+  "triggerCount": 14,
   "shared": [
     {
       "updatedAt": "2026-11-05T06:14:41.597Z",
@@ -3783,9 +4569,9 @@
     }
   ],
   "activeVersion": {
-    "updatedAt": "2026-11-05T08:15:41.382Z",
-    "createdAt": "2026-11-05T08:15:41.382Z",
-    "versionId": "2bbd80b5-a426-4551-93cb-79f8e1e2a806",
+    "updatedAt": "2026-11-05T09:02:36.177Z",
+    "createdAt": "2026-11-05T09:02:36.177Z",
+    "versionId": "ffbc6c87-f120-4533-8c30-b496a9503965",
     "workflowId": "qhmoB9pZdLav12FB",
     "nodes": [
       {
@@ -6128,6 +6914,462 @@
             }
           }
         }
+      },
+      {
+        "id": "wh-14",
+        "name": "Webhook 14",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          6665
+        ],
+        "webhookId": "askops-tool-search-kb",
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "tool-search-kb",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "nm-14",
+        "name": "Normalize Input 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst body = item.body ?? item;\nreturn [{ json: { ...body, _tool: 'search_kb', _start_at: Date.now() } }];"
+        }
+      },
+      {
+        "id": "gi-14",
+        "name": "Get Identity 14",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          440,
+          6610
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT * FROM current_identity()",
+          "options": {}
+        }
+      },
+      {
+        "id": "skb-pemb-14",
+        "name": "Prep Embed 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          660,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const id = $('Get Identity 14').first().json;\nconst q  = $('Normalize Input 14').first().json.query;\nif (!q || !q.trim()) throw new Error('search_kb: query is required');\nreturn [{ json: { ...id, query: q.trim() } }];"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-emb-14",
+        "name": "Embed Query 14",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          880,
+          6610
+        ],
+        "credentials": {
+          "httpQueryAuth": {
+            "id": "emzXNUHrKp6cIn1O",
+            "name": "AskOps Gemini"
+          }
+        },
+        "parameters": {
+          "method": "POST",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpQueryAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\"model\":\"models/gemini-embedding-001\",\"content\":{\"parts\":[{\"text\":$json.query}]},\"taskType\":\"RETRIEVAL_QUERY\",\"outputDimensionality\":768}) }}",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-femb-14",
+        "name": "Format Embedding 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1100,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const id = $('Get Identity 14').first().json;\nconst q  = $('Prep Embed 14').first().json.query;\nconst vals = $input.first().json.embedding?.values;\nif (!vals || vals.length === 0) throw new Error('Embedding error: Gemini returned no values');\nconst vec = '[' + vals.join(',') + ']';\nreturn [{ json: { ...id, query: q, embedding_str: vec } }];"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-lkc-14",
+        "name": "Lookup Cache 14",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1320,
+          6610
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT COALESCE(json_agg(c), '[]'::json) AS cache_result\nFROM (\n  SELECT cache_id, answer, sources::text\n  FROM lookup_cache(\n    '{{ $json.workspace_id }}'::uuid,\n    '{{ $json.access_role }}',\n    '{{ $json.embedding_str }}'::vector\n  )\n) c",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-ec-14",
+        "name": "Eval Cache 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1540,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst id  = $('Get Identity 14').first().json;\nconst q   = $('Prep Embed 14').first().json.query;\nconst emb = $('Format Embedding 14').first().json.embedding_str;\nconst arr = Array.isArray(item.cache_result) ? item.cache_result\n  : (typeof item.cache_result === 'string' ? JSON.parse(item.cache_result || '[]') : []);\nconst hit = arr.length > 0;\nconst cached = arr[0] || null;\nreturn [{ json: {\n  ...id, query: q, embedding_str: emb,\n  cache_hit:    hit,\n  cache_id:     cached ? cached.cache_id  : null,\n  cache_answer: cached ? cached.answer    : null,\n  cache_sources: cached ? cached.sources  : null,\n} }];"
+        }
+      },
+      {
+        "id": "skb-ifc-14",
+        "name": "Cache Hit IF 14",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1760,
+          6610
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose"
+            },
+            "conditions": [
+              {
+                "id": "ifc-cond-14",
+                "leftValue": "={{ $json.cache_hit }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "name": "boolean:true",
+                  "rightType": "any",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "skb-hr-14",
+        "name": "Build Hit Response 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1980,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst sources = typeof item.cache_sources === 'string'\n  ? JSON.parse(item.cache_sources || '[]')\n  : (Array.isArray(item.cache_sources) ? item.cache_sources : []);\nconst srcList = sources.map(s => s.title ? s.title + ' (' + s.source_type + ')' : (s.source_type || '')).join(', ');\nconst q = $('Prep Embed 14').first().json.query;\nconst out = {\n  answer: item.cache_answer,\n  sources,\n  source_citation: srcList ? 'Source: ' + srcList : null,\n  cache_hit: true\n};\nreturn [{ json: { ...item, ...out, _out: out, _tool_name: 'search_kb',\n  _in: { query: q }, _status: 'success', _error: null } }];"
+        }
+      },
+      {
+        "id": "skb-mc-14",
+        "name": "Match Chunks 14",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1980,
+          6830
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT COALESCE(json_agg(c), '[]'::json) AS chunks_data\nFROM (\n  SELECT chunk_id, title, source_type, source_url, content\n  FROM match_chunks(\n    '{{ $json.workspace_id }}'::uuid,\n    '{{ $json.embedding_str }}'::vector,\n    5,\n    0.5\n  )\n) c",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-eck-14",
+        "name": "Eval Chunks 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2200,
+          6830
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst id  = $('Get Identity 14').first().json;\nconst q   = $('Prep Embed 14').first().json.query;\nconst emb = $('Format Embedding 14').first().json.embedding_str;\nconst chunks = Array.isArray(item.chunks_data) ? item.chunks_data\n  : (typeof item.chunks_data === 'string' ? JSON.parse(item.chunks_data || '[]') : []);\nreturn [{ json: {\n  ...id, query: q, embedding_str: emb,\n  chunks_data:  chunks,\n  chunks_count: chunks.length,\n  has_chunks:   chunks.length > 0,\n  no_chunks:    chunks.length === 0\n} }];"
+        }
+      },
+      {
+        "id": "skb-ifnck-14",
+        "name": "No Chunks IF 14",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2420,
+          6830
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose"
+            },
+            "conditions": [
+              {
+                "id": "ifnck-cond-14",
+                "leftValue": "={{ $json.no_chunks }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "name": "boolean:true",
+                  "rightType": "any",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "skb-nck-14",
+        "name": "Build No-Chunks Response 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2640,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const q   = $('Prep Embed 14').first().json.query;\nconst id  = $('Get Identity 14').first().json;\nconst out = {\n  answer: \"I don't have information about that in the knowledge base yet. Try asking a more general question, or contact your HR/IT team directly.\",\n  sources: [],\n  source_citation: null,\n  cache_hit: false\n};\nreturn [{ json: { ...id, ...out, _out: out, _tool_name: 'search_kb',\n  _in: { query: q }, _status: 'success', _error: null } }];"
+        }
+      },
+      {
+        "id": "skb-gp-14",
+        "name": "Build Groq Prompt 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2640,
+          6830
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst id   = $('Get Identity 14').first().json;\nconst chunks = Array.isArray(item.chunks_data) ? item.chunks_data\n  : JSON.parse(item.chunks_data || '[]');\nconst ctx = chunks.map((c, i) =>\n  '[' + (i+1) + '] ' + (c.title||'') + ' (' + (c.source_type||'') + '):' + c.content\n).join('\\n\\n');\nconst sys = 'You are a helpful IT/HR service desk assistant for ' + id.company_name + '.\\n'\n  + 'Answer based ONLY on the provided context. Be concise and professional.\\n'\n  + \"If the context doesn't contain the answer, say \\\"I don't have that information.\\\".\\n\"\n  + 'Always end with the source type in parentheses: (Source: website/upload/sample).';\nconst usr = 'Context:\\n' + ctx + '\\n\\nQuestion: ' + item.query + '\\nAnswer:';\nconst groqBody = JSON.stringify({\n  model: 'openai/gpt-oss-120b',\n  messages: [{role:'system',content:sys},{role:'user',content:usr}],\n  max_tokens: 400,\n  temperature: 0.1\n});\nreturn [{ json: { ...item, chunks_data: chunks, groq_body: groqBody } }];"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-groq-14",
+        "name": "Groq LLM 14",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2860,
+          6830
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "AxtE0phNFpQkBki9",
+            "name": "AskOps Groq"
+          }
+        },
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.groq.com/openai/v1/chat/completions",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.groq_body }}",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-lr-14",
+        "name": "Build LLM Response 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3080,
+          6830
+        ],
+        "parameters": {
+          "jsCode": "const resp = $input.first().json;\nconst ctx  = $('Build Groq Prompt 14').first().json;\nconst esc  = s => s == null ? null : String(s).replace(/'/g, \"''\");\nconst answer = resp.choices?.[0]?.message?.content || \"I could not generate an answer. Please try again.\";\nconst chunks  = Array.isArray(ctx.chunks_data) ? ctx.chunks_data : JSON.parse(ctx.chunks_data || '[]');\nconst sources = chunks.map(c => ({ title: c.title, source_type: c.source_type, url: c.source_url || null }));\nreturn [{ json: {\n  ...ctx,\n  answer,\n  answer_esc:   esc(answer),\n  question_esc: esc(ctx.query),\n  sources_jsonb: JSON.stringify(sources)\n} }];"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-wc-14",
+        "name": "Write Cache 14",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          3300,
+          6830
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO semantic_cache\n  (workspace_id, access_role, question, question_embedding, answer, sources)\nVALUES (\n  '{{ $json.workspace_id }}'::uuid,\n  '{{ $json.access_role }}',\n  '{{ $json.question_esc }}',\n  '{{ $json.embedding_str }}'::vector,\n  '{{ $json.answer_esc }}',\n  '{{ $json.sources_jsonb }}'::jsonb\n)\nRETURNING id::text AS cache_id",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "skb-fmt-14",
+        "name": "Format SKB Answer 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3520,
+          6830
+        ],
+        "parameters": {
+          "jsCode": "const lr = $('Build LLM Response 14').first().json;\nconst chunks  = Array.isArray(lr.chunks_data) ? lr.chunks_data : JSON.parse(lr.chunks_data || '[]');\nconst sources = chunks.map(c => ({ title: c.title, source_type: c.source_type, url: c.source_url }));\nconst srcList = [...new Set(chunks.map(c => c.source_type))].join(', ');\nconst out = {\n  answer: lr.answer,\n  sources,\n  source_citation: srcList ? 'Source: ' + srcList : null,\n  cache_hit: false\n};\nreturn [{ json: { ...lr, ...out, _out: out, _tool_name: 'search_kb',\n  _in: { query: lr.query }, _status: 'success', _error: null } }];"
+        }
+      },
+      {
+        "id": "pl-14",
+        "name": "Prepare Log 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3740,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const d = $input.first().json;\nconst id = $('Get Identity 14').first().json;\nconst start = $('Normalize Input 14').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  ...d._out,\n  _lws:  id.workspace_id,\n  _lemp: id.employee_id ?? null,\n  _ltool: d._tool_name,\n  _lin:  esc(JSON.stringify(d._in  ?? {})),\n  _lout: d._out != null ? esc(JSON.stringify(d._out)) : null,\n  _lst:  d._status,\n  _lerr: esc(d._error) ?? null,\n  _llat: Date.now() - start\n}}];"
+        }
+      },
+      {
+        "id": "lg-14",
+        "name": "Log Tool Call 14",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          3960,
+          6610
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO tool_calls\n  (workspace_id, employee_id, tool_name, input, output, status, error, latency_ms)\nVALUES (\n  '{{ $json._lws }}'::uuid,\n  {{ $json._lemp ? \"'\" + $json._lemp + \"'\" : 'NULL' }}::uuid,\n  '{{ $json._ltool }}',\n  '{{ $json._lin }}'::jsonb,\n  {{ $json._lout ? \"'\" + $json._lout + \"'\" : 'NULL' }}::jsonb,\n  '{{ $json._lst }}',\n  {{ $json._lerr ? \"'\" + $json._lerr + \"'\" : 'NULL' }},\n  {{ $json._llat }}::integer\n)\nRETURNING id",
+          "options": {}
+        }
+      },
+      {
+        "id": "ro-14",
+        "name": "Return Output 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4180,
+          6610
+        ],
+        "parameters": {
+          "jsCode": "const d = $('Prepare Log 14').first().json;\nconst clean = Object.fromEntries(Object.entries(d).filter(([k]) => !k.startsWith('_l')));\nreturn [{ json: clean }];"
+        }
+      },
+      {
+        "id": "he-14",
+        "name": "Handle Error 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          6830
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Tool error').replace(/\\s*\\[line \\d+\\]$/, '');\nlet status = 'error';\nlet friendly = msg;\nconst m = msg.match(/^([A-Z_]+):\\s*(.*)/s);\nconst code = m?.[1];\nconst rest = m?.[2] || msg;\nconst codeMap = {\n  ACCESS_DENIED:        ['denied', 'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',  'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',  'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',  'This request has already been decided.'],\n  INVALID_LINK:         ['error',  'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n} else if (code) {\n  friendly = rest;\n}\nconst id = $('Get Identity 14').first().json;\nconst start = $('Normalize Input 14').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input 14').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
+        }
+      },
+      {
+        "id": "le-14",
+        "name": "Log Error 14",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          440,
+          6830
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO tool_calls\n  (workspace_id, employee_id, tool_name, input, output, status, error, latency_ms)\nVALUES (\n  '{{ $json._lws }}'::uuid,\n  {{ $json._lemp ? \"'\" + $json._lemp + \"'\" : 'NULL' }}::uuid,\n  '{{ $json._ltool }}',\n  '{{ $json._lin }}'::jsonb,\n  {{ $json._lout ? \"'\" + $json._lout + \"'\" : 'NULL' }}::jsonb,\n  '{{ $json._lst }}',\n  {{ $json._lerr ? \"'\" + $json._lerr + \"'\" : 'NULL' }},\n  {{ $json._llat }}::integer\n)\nRETURNING id",
+          "options": {}
+        }
+      },
+      {
+        "id": "re-14",
+        "name": "Return Error 14",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          660,
+          6830
+        ],
+        "parameters": {
+          "jsCode": "const d = $('Handle Error 14').first().json;\nreturn [{ json: { error: d.error } }];"
+        }
       }
     ],
     "connections": {
@@ -7537,6 +8779,336 @@
           [
             {
               "node": "Respond Error 13",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook 14": {
+        "main": [
+          [
+            {
+              "node": "Normalize Input 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Input 14": {
+        "main": [
+          [
+            {
+              "node": "Get Identity 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Identity 14": {
+        "main": [
+          [
+            {
+              "node": "Prep Embed 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prep Embed 14": {
+        "main": [
+          [
+            {
+              "node": "Embed Query 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Embed Query 14": {
+        "main": [
+          [
+            {
+              "node": "Format Embedding 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Embedding 14": {
+        "main": [
+          [
+            {
+              "node": "Lookup Cache 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lookup Cache 14": {
+        "main": [
+          [
+            {
+              "node": "Eval Cache 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eval Cache 14": {
+        "main": [
+          [
+            {
+              "node": "Cache Hit IF 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cache Hit IF 14": {
+        "main": [
+          [
+            {
+              "node": "Build Hit Response 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Match Chunks 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Hit Response 14": {
+        "main": [
+          [
+            {
+              "node": "Prepare Log 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Match Chunks 14": {
+        "main": [
+          [
+            {
+              "node": "Eval Chunks 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eval Chunks 14": {
+        "main": [
+          [
+            {
+              "node": "No Chunks IF 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "No Chunks IF 14": {
+        "main": [
+          [
+            {
+              "node": "Build No-Chunks Response 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Groq Prompt 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build No-Chunks Response 14": {
+        "main": [
+          [
+            {
+              "node": "Prepare Log 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Groq Prompt 14": {
+        "main": [
+          [
+            {
+              "node": "Groq LLM 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Groq LLM 14": {
+        "main": [
+          [
+            {
+              "node": "Build LLM Response 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build LLM Response 14": {
+        "main": [
+          [
+            {
+              "node": "Write Cache 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Write Cache 14": {
+        "main": [
+          [
+            {
+              "node": "Format SKB Answer 14",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Format SKB Answer 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format SKB Answer 14": {
+        "main": [
+          [
+            {
+              "node": "Prepare Log 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Log 14": {
+        "main": [
+          [
+            {
+              "node": "Log Tool Call 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Tool Call 14": {
+        "main": [
+          [
+            {
+              "node": "Return Output 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Handle Error 14": {
+        "main": [
+          [
+            {
+              "node": "Log Error 14",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Error 14": {
+        "main": [
+          [
+            {
+              "node": "Return Error 14",
               "type": "main",
               "index": 0
             }

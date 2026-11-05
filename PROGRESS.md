@@ -31,13 +31,13 @@ Status key: [ ] not started · [~] in progress · [x] done
 - [ ] Tested through the tunnel on a phone (tunnel URL must be set in workspaces.webhook_url)
 
 ## Phase 3: Knowledge ingestion
-- [ ] search_kb: Gemini embedding → lookup_cache → match_chunks → cited answer
-- [ ] Sample policy generator (company-branded, tagged SAMPLE)
-- [ ] Website crawl: homepage + sitemap, keyword scoring, top ~15 pages via Jina
+- [x] search_kb: Gemini embed → lookup_cache (semantic cache) → match_chunks → openai/gpt-oss-120b via Groq → cited answer; cache hit on 2nd query (tested 2026-11-05)
+- [x] Sample policy generator: 4 sample docs × 2-3 chunks = 10 chunks seeded via scripts/seed_sample_kb.py; source_type='sample' (tested 2026-11-05)
+- [x] Website crawl: ingest.website workflow — Jina Reader → Extract Chunks (Code) → Gemini embed → Store Chunk (Postgres) → Done (created 2026-11-05)
 - [ ] Document upload ingestion (PDF/DOCX/TXT)
 - [ ] Employee CSV upload with Groq column mapping + confirmation
 - [ ] build_events emitted for every step
-- [ ] cron.cleanup calls delete_expired_workspaces() hourly
+- [x] cron.cleanup calls delete_expired_workspaces() hourly (cron.cleanup workflow created 2026-11-05)
 
 ## Phase 4: Copilot Studio agent
 - [ ] Start free trial (timed so 30 days cover the interview)
@@ -96,6 +96,9 @@ Status key: [ ] not started · [~] in progress · [x] done
 | 2026-11-05 | HTML webhook branches use `respondToWebhook` with `responseMode: 'responseNode'`; `respondWith: 'text'` → param is `responseBody` not `body` | n8n source confirms `responseBody` is the parameter name for text/HTML responses |
 | 2026-11-05 | `peek_pto_by_token` and `decide_pto_by_token` must use `decode(p_token, 'hex')` not `convert_to(p_token, 'UTF8')` | Token in email link is hex-encoded raw bytes; hashing the hex string chars produces a different hash than hashing the original bytes |
 | 2026-11-05 | `peek_pto_by_token` changed from SQL to plpgsql to raise `INVALID_LINK` on 0 rows | n8n Postgres node with 0-row result skips all downstream nodes, so `respondToWebhook` is never reached; raising an exception routes to the error output path |
+| 2026-11-05 | search_kb branch built manually (not via build_branch) with IF nodes for cache hit and no-chunks routing | Standard build_branch() assumes linear flow; IF nodes need manual connection mapping; added Prep Embed 14 node to merge query + identity before Gemini HTTP call |
+| 2026-11-05 | psql() in seed scripts must strip "INSERT 0 1" suffix from RETURNING output | n8n `-t -A` flags emit UUID + "INSERT 0 1" on the same stdout stream; using the full value as doc_id causes UUID cast failure on chunk inserts (silently, with returncode=0) |
+| 2026-11-05 | Groq model changed from `llama-3.3-70b-versatile` to `openai/gpt-oss-120b` | llama-3.3-70b-versatile not available on this Groq API key; available models are openai/gpt-oss-120b, qwen/qwen3.x-27b, allam-2-7b, whisper |
 
 ## Risks and open questions
 
