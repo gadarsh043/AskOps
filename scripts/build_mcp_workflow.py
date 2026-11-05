@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Build the unified mcp.ask-ops workflow (qhmoB9pZdLav12FB) with all 11 tool branches.
-Each branch: Webhook N → Normalize Input N → Get Identity N → [tool logic]
-             → Prepare Log N → Log Tool Call N → Return Output N
-                             ↘ Handle Error N → Log Error N → Return Error N
+Build the unified mcp.ask-ops workflow (qhmoB9pZdLav12FB) with all 11 tool branches
+plus 2 HTML webhook branches for the PTO email approval loop.
+Each tool branch: Webhook N → Normalize Input N → Get Identity N → [tool logic]
+                 → Prepare Log N → Log Tool Call N → Return Output N
+                                 ↘ Handle Error N → Log Error N → Return Error N
+HTML branches (12, 13): Webhook → Postgres → Build HTML → Respond to Webhook
 """
 import json, re, urllib.request, urllib.error
 
@@ -11,6 +13,8 @@ BASE      = 'http://localhost:5678'
 API_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZjIyYTczYy04ZGUyLTQyZTMtYTg3ZS01OTBjMGYyMjIyYjciLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzkzODU5MzQ2fQ.eAmo5vLR78e7fRQ7rbo3vGjV6r_cdMrM_FYavc4DBII'
 TARGET_ID = 'qhmoB9pZdLav12FB'
 CRED      = {'postgres': {'id': '4DuuvBbohpSo7Mr0', 'name': 'AskOps Postgres'}}
+SMTP_CRED = {'smtp': {'id': '8vmLF66qqfuLZu5m', 'name': 'AskOps Gmail SMTP'}}
+GMAIL_FROM = 'g.adarsh043@gmail.com'
 
 Y_STEP = 500   # vertical gap between branches
 X_STEP = 220   # horizontal gap between nodes
@@ -52,7 +56,7 @@ def suffix_js(js, n):
     return re.sub(r"\$\('([^']+)'\)", lambda m: f"$('{m.group(1)} {n}')", js)
 
 
-# ── Footer JS/SQL templates (use __N__ as placeholder, replaced by suffix_n) ──
+# ── Footer JS/SQL templates (use __N__ as placeholder, replaced by _t()) ──────
 _PREP_LOG_JS = """
 const d = $input.first().json;
 const id = $('Get Identity __N__').first().json;
@@ -139,7 +143,6 @@ def build_branch(bi, branch):
     bx  = 0
     by  = bi * Y_STEP
 
-    # ── Custom or default normalize JS ──
     normalize_js = branch.get('normalize_js') or (
         f'const item = $input.first().json;\n'
         f'const body = item.body ?? item;\n'
@@ -166,7 +169,7 @@ def build_branch(bi, branch):
         orig = nd['name']
         new_name = f'{orig} {n}'
         name_map[orig] = new_name
-        snd = json.loads(json.dumps(nd))   # deep copy
+        snd = json.loads(json.dumps(nd))
         snd['name'] = new_name
         snd['id']   = f'{snd["id"]}-{n}'
         snd['position'] = [snd['position'][0] + bx, snd['position'][1] + by]
@@ -174,12 +177,18 @@ def build_branch(bi, branch):
             snd['parameters']['jsCode'] = suffix_js(snd['parameters']['jsCode'], n)
         if 'query' in snd.get('parameters', {}):
             snd['parameters']['query'] = suffix_js(snd['parameters']['query'], n)
+        # Suffix expression fields on emailSend node
+        for param_key in ('toEmail', 'subject', 'html', 'fromEmail'):
+            if param_key in snd.get('parameters', {}):
+                val = snd['parameters'][param_key]
+                if isinstance(val, str):
+                    snd['parameters'][param_key] = suffix_js(val, n)
         tool_sfx.append(snd)
 
-    # ── Footer nodes (placed after last tool node) ──
+    # ── Footer nodes ──
     max_x = max(nd['position'][0] for nd in tool_sfx) if tool_sfx else bx + 440
     fx = max_x + X_STEP
-    ey = by + 330   # error row
+    ey = by + 330
 
     pl  = code_nd(f'pl-{n}',   f'Prepare Log {n}',   _t(_PREP_LOG_JS, n), fx,         by + 110)
     lg  = pg_nd(f'lg-{n}',     f'Log Tool Call {n}',  _LOG_SQL,            fx + X_STEP, by + 110)
@@ -208,7 +217,6 @@ def build_branch(bi, branch):
         f'Handle Error {n}':   {'main': [[{'node': f'Log Error {n}',       'type': 'main', 'index': 0}]]},
         f'Log Error {n}':      {'main': [[{'node': f'Return Error {n}',    'type': 'main', 'index': 0}]]},
     }
-    # Suffix tool-specific connections
     for src, edges in branch['conns'].items():
         new_src = name_map.get(src, src + f' {n}')
         new_edges = []
@@ -220,6 +228,68 @@ def build_branch(bi, branch):
             ])
         conns[new_src] = {'main': new_edges}
 
+    return nodes, conns
+
+
+# ── HTML webhook branch builder ────────────────────────────────────────────────
+def respond_node(nid, name, x, y):
+    """respondToWebhook node that sends HTML from $json.html."""
+    return {
+        'id': nid, 'name': name,
+        'type': 'n8n-nodes-base.respondToWebhook', 'typeVersion': 1.1,
+        'position': [x, y],
+        'parameters': {
+            'respondWith': 'text',
+            'responseBody': '={{ $json.html }}',
+            'options': {
+                'responseCode': 200,
+                'responseHeaders': {
+                    'entries': [{'name': 'Content-Type', 'value': 'text/html; charset=utf-8'}]
+                }
+            }
+        }
+    }
+
+
+def build_html_branch(bi, branch_id, http_method, path, main_node, success_js, error_js):
+    """
+    Simple GET/POST webhook branch returning HTML. No identity lookup or logging.
+    Used for the email approval pages (pto-review, pto-decide).
+    """
+    bx = 0
+    base_y = bi * Y_STEP
+
+    wh = {
+        'id': f'wh-h{branch_id}', 'name': f'Webhook {branch_id}',
+        'type': 'n8n-nodes-base.webhook', 'typeVersion': 2,
+        'position': [bx, base_y + 110],
+        'webhookId': f'askops-{path}',
+        'parameters': {
+            'httpMethod': http_method, 'path': path,
+            'responseMode': 'responseNode', 'options': {}
+        }
+    }
+
+    main_nd = json.loads(json.dumps(main_node))
+    main_nd['id'] += f'-{branch_id}'
+    main_nd['name'] += f' {branch_id}'
+    main_nd['position'] = [bx + 220, base_y + 110]
+    main_nd['onError'] = 'continueErrorOutput'
+
+    suc      = code_nd(f'suc-h{branch_id}', f'Build Success HTML {branch_id}', success_js, bx + 440, base_y + 110)
+    err_html = code_nd(f'err-h{branch_id}', f'Build Error HTML {branch_id}',   error_js,   bx + 220, base_y + 330)
+    suc_resp = respond_node(f'rsp-s{branch_id}', f'Respond Success {branch_id}', bx + 660, base_y + 110)
+    err_resp = respond_node(f'rsp-e{branch_id}', f'Respond Error {branch_id}',   bx + 440, base_y + 330)
+
+    nodes = [wh, main_nd, suc, err_html, suc_resp, err_resp]
+    mn = main_nd['name']
+    conns = {
+        f'Webhook {branch_id}':              {'main': [[{'node': mn,                               'type': 'main', 'index': 0}]]},
+        mn:                                  {'main': [[{'node': f'Build Success HTML {branch_id}', 'type': 'main', 'index': 0}],
+                                                        [{'node': f'Build Error HTML {branch_id}',  'type': 'main', 'index': 0}]]},
+        f'Build Success HTML {branch_id}':   {'main': [[{'node': f'Respond Success {branch_id}',    'type': 'main', 'index': 0}]]},
+        f'Build Error HTML {branch_id}':     {'main': [[{'node': f'Respond Error {branch_id}',      'type': 'main', 'index': 0}]]},
+    }
     return nodes, conns
 
 
@@ -435,7 +505,7 @@ BRANCH_6 = {
     }
 }
 
-# ── 7. request_pto ────────────────────────────────────────────────────────────
+# ── 7. request_pto (with email approval) ──────────────────────────────────────
 RPTO_VAL_JS = r"""
 const id = $('Get Identity').first().json;
 const body = $('Normalize Input').first().json;
@@ -474,23 +544,65 @@ if (days > balance) throw new Error('INSUFFICIENT_BALANCE: You requested ' + day
 return [{ json: { ...ctx, requested_days: days, balance_days: balance } }];
 """
 
-RPTO_INS_SQL = """WITH tok AS (SELECT gen_random_bytes(32) AS raw)
-INSERT INTO pto_requests
-  (workspace_id, employee_id, start_date, end_date, days, reason,
-   status, approval_token_hash, token_expires_at)
-SELECT '{{ $json.workspace_id }}'::uuid, '{{ $json.employee_id }}'::uuid,
-  '{{ $json.start_date }}'::date, '{{ $json.end_date }}'::date,
-  {{ $json.requested_days }}, '{{ $json.reason }}', 'pending',
-  encode(digest(raw, 'sha256'), 'hex'), now() + interval '48 hours'
-FROM tok
-RETURNING code, days::text, status"""
+RPTO_INS_SQL = """WITH tok AS (SELECT gen_random_bytes(32) AS raw),
+ins AS (
+  INSERT INTO pto_requests
+    (workspace_id, employee_id, start_date, end_date, days, reason,
+     status, approval_token_hash, token_expires_at)
+  SELECT '{{ $json.workspace_id }}'::uuid, '{{ $json.employee_id }}'::uuid,
+    '{{ $json.start_date }}'::date, '{{ $json.end_date }}'::date,
+    {{ $json.requested_days }}, '{{ $json.reason }}', 'pending',
+    encode(digest(raw, 'sha256'), 'hex'), now() + interval '48 hours'
+  FROM tok
+  RETURNING code, days::text AS days, status
+)
+SELECT
+  ins.code, ins.days, ins.status,
+  encode(tok.raw, 'hex') AS token_raw,
+  w.demo_manager_email, w.company_name, w.webhook_url,
+  e.full_name AS employee_name
+FROM ins
+CROSS JOIN tok
+JOIN workspaces w ON w.id = '{{ $json.workspace_id }}'::uuid
+JOIN employees e ON e.id = '{{ $json.employee_id }}'::uuid"""
 
-RPTO_FMT = """
+BUILD_EMAIL_JS = """
 const r = $input.first().json;
 const ctx = $('Guard Check').first().json;
+const baseUrl = r.webhook_url || 'http://localhost:5678';
+const reviewUrl = baseUrl + '/webhook/pto-review?token=' + r.token_raw;
+const html = `<!DOCTYPE html>
+<html><body style="font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px">
+<h2 style="color:#1a56db">PTO Request: Approval Needed</h2>
+<p>Hi Manager,</p>
+<p><strong>${r.employee_name}</strong> has requested time off:</p>
+<table style="border-collapse:collapse;width:100%;margin:20px 0">
+  <tr><td style="padding:8px;border:1px solid #ddd;background:#f9f9f9"><strong>Dates</strong></td>
+      <td style="padding:8px;border:1px solid #ddd">${ctx.start_date} → ${ctx.end_date}</td></tr>
+  <tr><td style="padding:8px;border:1px solid #ddd;background:#f9f9f9"><strong>Days</strong></td>
+      <td style="padding:8px;border:1px solid #ddd">${r.days}</td></tr>
+  <tr><td style="padding:8px;border:1px solid #ddd;background:#f9f9f9"><strong>Reason</strong></td>
+      <td style="padding:8px;border:1px solid #ddd">${ctx.reason}</td></tr>
+  <tr><td style="padding:8px;border:1px solid #ddd;background:#f9f9f9"><strong>Reference</strong></td>
+      <td style="padding:8px;border:1px solid #ddd">${r.code}</td></tr>
+</table>
+<a href="${reviewUrl}" style="display:inline-block;padding:12px 28px;background:#1a56db;color:#fff;text-decoration:none;border-radius:6px;font-size:16px">Review Request</a>
+<p style="color:#888;font-size:12px;margin-top:32px">This link expires in 48 hours. Powered by AskOps — ${r.company_name}</p>
+</body></html>`;
+return [{ json: {
+  email_to: r.demo_manager_email,
+  email_subject: '[AskOps] PTO request from ' + r.employee_name + ': ' + r.code,
+  email_html: html,
+  code: r.code, days: r.days, status: r.status,
+  start_date: ctx.start_date, end_date: ctx.end_date
+}}];
+"""
+
+RPTO_FMT = """
+const r = $('Build Email Content').first().json;
 const body = $('Normalize Input').first().json;
 const out = { code: r.code, days: r.days, status: r.status,
-              start_date: ctx.start_date, end_date: ctx.end_date,
+              start_date: r.start_date, end_date: r.end_date,
               message: 'PTO request submitted. Your manager will receive an approval email shortly.' };
 return [{ json: { ...out, _out: out, _tool_name: 'request_pto',
   _in: { start_date: body.start_date, end_date: body.end_date, reason: body.reason },
@@ -500,22 +612,43 @@ return [{ json: { ...out, _out: out, _tool_name: 'request_pto',
 BRANCH_7 = {
     'name': 'request_pto', 'path': 'tool-request-pto',
     'nodes': [
-        code_nd('rpto-val',   'Validate Dates', RPTO_VAL_JS,   660,  0, 'continueErrorOutput'),
-        pg_nd('rpto-check',   'Check Balance',  RPTO_CHECK_SQL, 880,  0, 'continueErrorOutput'),
-        code_nd('rpto-guard', 'Guard Check',    RPTO_GUARD_JS,  1100, 0, 'continueErrorOutput'),
-        pg_nd('rpto-ins',     'Insert PTO',     RPTO_INS_SQL,   1320, 0, 'continueErrorOutput'),
-        fmt_nd(RPTO_FMT, 1540, 0),
+        code_nd('rpto-val',   'Validate Dates',     RPTO_VAL_JS,    660,  0, 'continueErrorOutput'),
+        pg_nd('rpto-check',   'Check Balance',       RPTO_CHECK_SQL, 880,  0, 'continueErrorOutput'),
+        code_nd('rpto-guard', 'Guard Check',         RPTO_GUARD_JS,  1100, 0, 'continueErrorOutput'),
+        pg_nd('rpto-ins',     'Insert PTO',          RPTO_INS_SQL,   1320, 0, 'continueErrorOutput'),
+        code_nd('rpto-email', 'Build Email Content', BUILD_EMAIL_JS, 1540, 0, 'continueErrorOutput'),
+        {
+            'id': 'rpto-send', 'name': 'Send Approval Email',
+            'type': 'n8n-nodes-base.emailSend', 'typeVersion': 2.1,
+            'position': [1760, 0],
+            'parameters': {
+                'fromEmail': GMAIL_FROM,
+                'toEmail': '={{ $json.email_to }}',
+                'subject': '={{ $json.email_subject }}',
+                'emailFormat': 'html',
+                'html': '={{ $json.email_html }}',
+                'options': {}
+            },
+            'credentials': SMTP_CRED,
+            'onError': 'continueErrorOutput'
+        },
+        fmt_nd(RPTO_FMT, 1980, 0),
     ],
     'conns': {
-        'Validate Dates': {'main': [[{'node': 'Check Balance', 'type': 'main', 'index': 0}],
-                                     [{'node': 'Handle Error',  'type': 'main', 'index': 0}]]},
-        'Check Balance':  {'main': [[{'node': 'Guard Check',   'type': 'main', 'index': 0}],
-                                     [{'node': 'Handle Error',  'type': 'main', 'index': 0}]]},
-        'Guard Check':    {'main': [[{'node': 'Insert PTO',    'type': 'main', 'index': 0}],
-                                     [{'node': 'Handle Error',  'type': 'main', 'index': 0}]]},
-        'Insert PTO':     {'main': [[{'node': 'Format Output', 'type': 'main', 'index': 0}],
-                                     [{'node': 'Handle Error',  'type': 'main', 'index': 0}]]},
-        'Format Output':  {'main': [[{'node': 'Prepare Log',   'type': 'main', 'index': 0}]]},
+        'Validate Dates':     {'main': [[{'node': 'Check Balance',      'type': 'main', 'index': 0}],
+                                         [{'node': 'Handle Error',       'type': 'main', 'index': 0}]]},
+        'Check Balance':      {'main': [[{'node': 'Guard Check',         'type': 'main', 'index': 0}],
+                                         [{'node': 'Handle Error',       'type': 'main', 'index': 0}]]},
+        'Guard Check':        {'main': [[{'node': 'Insert PTO',          'type': 'main', 'index': 0}],
+                                         [{'node': 'Handle Error',       'type': 'main', 'index': 0}]]},
+        'Insert PTO':         {'main': [[{'node': 'Build Email Content', 'type': 'main', 'index': 0}],
+                                         [{'node': 'Handle Error',       'type': 'main', 'index': 0}]]},
+        'Build Email Content':{'main': [[{'node': 'Send Approval Email', 'type': 'main', 'index': 0}],
+                                         [{'node': 'Handle Error',       'type': 'main', 'index': 0}]]},
+        # best-effort: email success AND error both go to Format Output
+        'Send Approval Email':{'main': [[{'node': 'Format Output',       'type': 'main', 'index': 0}],
+                                         [{'node': 'Format Output',       'type': 'main', 'index': 0}]]},
+        'Format Output':      {'main': [[{'node': 'Prepare Log',         'type': 'main', 'index': 0}]]},
     }
 }
 
@@ -718,6 +851,142 @@ BRANCH_11 = {
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# HTML webhook branches (12 & 13) — email approval loop
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── 12. api.pto-review (GET — email link → confirmation HTML page) ────────────
+PEEK_SQL_NODE = pg_nd('pg-peek', 'Peek PTO Token', """SELECT code, employee_name, start_date::text, end_date::text, days::integer, reason, status
+FROM peek_pto_by_token('{{ $json.query.token }}')""", 0, 0)
+
+PEEK_SUCCESS_JS = r"""
+const r = $input.first().json;
+const wh = $('Webhook 12').first().json;
+const token = wh.query?.token || '';
+const proto = wh.headers?.['x-forwarded-proto'] || 'http';
+const host  = wh.headers?.host || 'localhost:5678';
+const baseUrl = proto + '://' + host;
+const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Review PTO Request</title>
+<style>
+body{font-family:sans-serif;max-width:560px;margin:60px auto;padding:0 20px}
+h1{color:#1a56db}
+.card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:24px;margin:24px 0}
+table{width:100%;border-collapse:collapse}
+td{padding:8px 12px;border-bottom:1px solid #e2e8f0}
+td:first-child{font-weight:600;color:#374151;width:35%}
+.btn{display:inline-block;padding:12px 28px;border-radius:6px;font-size:15px;cursor:pointer;border:none;margin:4px}
+.approve{background:#059669;color:#fff}.reject{background:#dc2626;color:#fff}
+.status{display:inline-block;padding:3px 10px;border-radius:12px;font-size:13px;background:#fef3c7;color:#92400e}
+</style></head><body>
+<h1>PTO Request Review</h1>
+<p>Please review the following time-off request:</p>
+<div class="card">
+<table>
+  <tr><td>Employee</td><td>${r.employee_name}</td></tr>
+  <tr><td>Dates</td><td>${r.start_date} → ${r.end_date}</td></tr>
+  <tr><td>Days</td><td>${r.days}</td></tr>
+  <tr><td>Reason</td><td>${r.reason}</td></tr>
+  <tr><td>Reference</td><td>${r.code}</td></tr>
+  <tr><td>Status</td><td><span class="status">${r.status}</span></td></tr>
+</table>
+</div>
+${r.status === 'pending' ? `
+<p><strong>Your decision:</strong></p>
+<button class="btn approve" onclick="decide('approved')">&#10003; Approve</button>
+<button class="btn reject"  onclick="decide('rejected')">&#10007; Reject</button>
+<p><label style="font-size:14px">Note (optional):<br>
+<textarea id="note" rows="2" style="width:100%;margin-top:4px;border:1px solid #d1d5db;border-radius:4px;padding:8px"></textarea>
+</label></p>
+<script>
+async function decide(d){
+  const note = document.getElementById('note').value;
+  const resp = await fetch('${baseUrl}/webhook/pto-decide',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token:'${token}',decision:d,note:note||null})
+  });
+  document.body.innerHTML = await resp.text();
+}
+</script>` : '<p style="color:#059669;font-weight:600">This request has already been decided.</p>'}
+</body></html>`;
+return [{ json: { html } }];
+"""
+
+PEEK_ERROR_JS = r"""
+const item = $input.first();
+const msg = item.json?.message || item.json?.error?.description || 'Invalid or expired link';
+const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Link Error</title>
+<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}
+.card{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:24px;margin:24px 0}</style>
+</head><body>
+<h2>⚠️ Link Invalid or Expired</h2>
+<div class="card"><p>${msg}</p></div>
+<p style="color:#6b7280;font-size:14px">Approval links are single-use and expire after 48 hours.<br>
+Please ask the employee to submit a new request.</p>
+</body></html>`;
+return [{ json: { html } }];
+"""
+
+BRANCH_12_NODES, BRANCH_12_CONNS = build_html_branch(
+    11, 12, 'GET', 'pto-review', PEEK_SQL_NODE, PEEK_SUCCESS_JS, PEEK_ERROR_JS
+)
+
+# ── 13. api.pto-decide (POST — button click → decision HTML result) ───────────
+DECIDE_TOKEN_SQL_NODE = pg_nd('pg-decide-tok', 'Decide by Token', """SELECT row_to_json(r.*) AS result
+FROM decide_pto_by_token(
+  '{{ $json.body?.token || $json.token }}',
+  '{{ $json.body?.decision || $json.decision }}',
+  {{ ($json.body?.note || $json.note) ? "'" + ($json.body?.note || $json.note).replace(/'/g, "''") + "'" : 'NULL' }}
+) r""", 0, 0)
+
+DECIDE_SUCCESS_JS = r"""
+const item = $input.first().json;
+const row = item.result ? (typeof item.result === 'string' ? JSON.parse(item.result) : item.result) : item;
+const decision = row.status || 'decided';
+const color = decision === 'approved' ? '#059669' : '#dc2626';
+const icon  = decision === 'approved' ? '✅' : '❌';
+const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Decision Recorded</title>
+<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}
+.icon{font-size:56px;display:block;margin-bottom:12px}
+.badge{display:inline-block;padding:6px 18px;border-radius:20px;font-size:16px;font-weight:600;color:#fff;background:${color};margin:12px 0}
+</style></head><body>
+<span class="icon">${icon}</span>
+<h2>Decision Recorded</h2>
+<p>Request <strong>${row.code}</strong> has been:</p>
+<span class="badge">${decision.toUpperCase()}</span>
+<p style="color:#6b7280;font-size:14px;margin-top:32px">The employee will be notified. You can close this window.</p>
+</body></html>`;
+return [{ json: { html } }];
+"""
+
+DECIDE_ERROR_JS = r"""
+const item = $input.first();
+const rawErr = item.json?.error;
+const msg = (item.json?.message
+         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)
+         || 'Could not process decision').replace(/\s*\[line \d+\]$/, '');
+const friendly = msg.includes('INVALID_LINK')
+  ? 'This approval link is invalid, expired, or has already been used.'
+  : msg;
+const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Error</title>
+<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}
+.card{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:24px;margin:24px 0}</style>
+</head><body>
+<h2>⚠️ Could Not Record Decision</h2>
+<div class="card"><p>${friendly}</p></div>
+<p style="color:#6b7280;font-size:14px">If the link has already been used, check your PTO system for the current status.</p>
+</body></html>`;
+return [{ json: { html } }];
+"""
+
+BRANCH_13_NODES, BRANCH_13_CONNS = build_html_branch(
+    12, 13, 'POST', 'pto-decide', DECIDE_TOKEN_SQL_NODE, DECIDE_SUCCESS_JS, DECIDE_ERROR_JS
+)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Assemble + deploy
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -732,7 +1001,13 @@ for bi, branch in enumerate(BRANCHES):
     all_nodes.extend(nodes)
     all_conns.update(conns)
 
-print(f'Assembling {len(all_nodes)} nodes across {len(BRANCHES)} branches...')
+# HTML webhook branches for the email approval loop
+all_nodes.extend(BRANCH_12_NODES)
+all_conns.update(BRANCH_12_CONNS)
+all_nodes.extend(BRANCH_13_NODES)
+all_conns.update(BRANCH_13_CONNS)
+
+print(f'Assembling {len(all_nodes)} nodes across {len(BRANCHES)} tool branches + 2 HTML branches...')
 
 wf_body = {
     'name': 'mcp.ask-ops',

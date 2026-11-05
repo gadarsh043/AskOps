@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-05T07:43:40.217Z",
+  "updatedAt": "2026-11-05T08:15:41.380Z",
   "createdAt": "2026-11-05T06:14:41.592Z",
   "id": "qhmoB9pZdLav12FB",
   "name": "mcp.ask-ops",
@@ -1218,8 +1218,47 @@
       },
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH tok AS (SELECT gen_random_bytes(32) AS raw)\nINSERT INTO pto_requests\n  (workspace_id, employee_id, start_date, end_date, days, reason,\n   status, approval_token_hash, token_expires_at)\nSELECT '{{ $json.workspace_id }}'::uuid, '{{ $json.employee_id }}'::uuid,\n  '{{ $json.start_date }}'::date, '{{ $json.end_date }}'::date,\n  {{ $json.requested_days }}, '{{ $json.reason }}', 'pending',\n  encode(digest(raw, 'sha256'), 'hex'), now() + interval '48 hours'\nFROM tok\nRETURNING code, days::text, status",
+        "query": "WITH tok AS (SELECT gen_random_bytes(32) AS raw),\nins AS (\n  INSERT INTO pto_requests\n    (workspace_id, employee_id, start_date, end_date, days, reason,\n     status, approval_token_hash, token_expires_at)\n  SELECT '{{ $json.workspace_id }}'::uuid, '{{ $json.employee_id }}'::uuid,\n    '{{ $json.start_date }}'::date, '{{ $json.end_date }}'::date,\n    {{ $json.requested_days }}, '{{ $json.reason }}', 'pending',\n    encode(digest(raw, 'sha256'), 'hex'), now() + interval '48 hours'\n  FROM tok\n  RETURNING code, days::text AS days, status\n)\nSELECT\n  ins.code, ins.days, ins.status,\n  encode(tok.raw, 'hex') AS token_raw,\n  w.demo_manager_email, w.company_name, w.webhook_url,\n  e.full_name AS employee_name\nFROM ins\nCROSS JOIN tok\nJOIN workspaces w ON w.id = '{{ $json.workspace_id }}'::uuid\nJOIN employees e ON e.id = '{{ $json.employee_id }}'::uuid",
         "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "rpto-email-7",
+      "name": "Build Email Content 7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        3000
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst ctx = $('Guard Check 7').first().json;\nconst baseUrl = r.webhook_url || 'http://localhost:5678';\nconst reviewUrl = baseUrl + '/webhook/pto-review?token=' + r.token_raw;\nconst html = `<!DOCTYPE html>\n<html><body style=\"font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px\">\n<h2 style=\"color:#1a56db\">PTO Request: Approval Needed</h2>\n<p>Hi Manager,</p>\n<p><strong>${r.employee_name}</strong> has requested time off:</p>\n<table style=\"border-collapse:collapse;width:100%;margin:20px 0\">\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Dates</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.start_date} \u2192 ${ctx.end_date}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Days</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.days}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reason</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.reason}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reference</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.code}</td></tr>\n</table>\n<a href=\"${reviewUrl}\" style=\"display:inline-block;padding:12px 28px;background:#1a56db;color:#fff;text-decoration:none;border-radius:6px;font-size:16px\">Review Request</a>\n<p style=\"color:#888;font-size:12px;margin-top:32px\">This link expires in 48 hours. Powered by AskOps \u2014 ${r.company_name}</p>\n</body></html>`;\nreturn [{ json: {\n  email_to: r.demo_manager_email,\n  email_subject: '[AskOps] PTO request from ' + r.employee_name + ': ' + r.code,\n  email_html: html,\n  code: r.code, days: r.days, status: r.status,\n  start_date: ctx.start_date, end_date: ctx.end_date\n}}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "rpto-send-7",
+      "name": "Send Approval Email 7",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1760,
+        3000
+      ],
+      "parameters": {
+        "fromEmail": "g.adarsh043@gmail.com",
+        "toEmail": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "8vmLF66qqfuLZu5m",
+          "name": "AskOps Gmail SMTP"
+        }
       },
       "onError": "continueErrorOutput"
     },
@@ -1229,11 +1268,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
+        1980,
         3000
       ],
       "parameters": {
-        "jsCode": "const r = $input.first().json;\nconst ctx = $('Guard Check 7').first().json;\nconst body = $('Normalize Input 7').first().json;\nconst out = { code: r.code, days: r.days, status: r.status,\n              start_date: ctx.start_date, end_date: ctx.end_date,\n              message: 'PTO request submitted. Your manager will receive an approval email shortly.' };\nreturn [{ json: { ...out, _out: out, _tool_name: 'request_pto',\n  _in: { start_date: body.start_date, end_date: body.end_date, reason: body.reason },\n  _status: 'success', _error: null } }];"
+        "jsCode": "const r = $('Build Email Content 7').first().json;\nconst body = $('Normalize Input 7').first().json;\nconst out = { code: r.code, days: r.days, status: r.status,\n              start_date: r.start_date, end_date: r.end_date,\n              message: 'PTO request submitted. Your manager will receive an approval email shortly.' };\nreturn [{ json: { ...out, _out: out, _tool_name: 'request_pto',\n  _in: { start_date: body.start_date, end_date: body.end_date, reason: body.reason },\n  _status: 'success', _error: null } }];"
       }
     },
     {
@@ -1242,7 +1281,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
+        2200,
         3110
       ],
       "parameters": {
@@ -1255,7 +1294,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1980,
+        2420,
         3110
       ],
       "credentials": {
@@ -1276,7 +1315,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2200,
+        2640,
         3110
       ],
       "parameters": {
@@ -2077,6 +2116,236 @@
       "parameters": {
         "jsCode": "const d = $('Handle Error 11').first().json;\nreturn [{ json: { error: d.error } }];"
       }
+    },
+    {
+      "id": "wh-h12",
+      "name": "Webhook 12",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        5610
+      ],
+      "webhookId": "askops-pto-review",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "pto-review",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "pg-peek-12",
+      "name": "Peek PTO Token 12",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        5610
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT code, employee_name, start_date::text, end_date::text, days::integer, reason, status\nFROM peek_pto_by_token('{{ $json.query.token }}')",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "suc-h12",
+      "name": "Build Success HTML 12",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        5610
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst wh = $('Webhook 12').first().json;\nconst token = wh.query?.token || '';\nconst proto = wh.headers?.['x-forwarded-proto'] || 'http';\nconst host  = wh.headers?.host || 'localhost:5678';\nconst baseUrl = proto + '://' + host;\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Review PTO Request</title>\n<style>\nbody{font-family:sans-serif;max-width:560px;margin:60px auto;padding:0 20px}\nh1{color:#1a56db}\n.card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:24px;margin:24px 0}\ntable{width:100%;border-collapse:collapse}\ntd{padding:8px 12px;border-bottom:1px solid #e2e8f0}\ntd:first-child{font-weight:600;color:#374151;width:35%}\n.btn{display:inline-block;padding:12px 28px;border-radius:6px;font-size:15px;cursor:pointer;border:none;margin:4px}\n.approve{background:#059669;color:#fff}.reject{background:#dc2626;color:#fff}\n.status{display:inline-block;padding:3px 10px;border-radius:12px;font-size:13px;background:#fef3c7;color:#92400e}\n</style></head><body>\n<h1>PTO Request Review</h1>\n<p>Please review the following time-off request:</p>\n<div class=\"card\">\n<table>\n  <tr><td>Employee</td><td>${r.employee_name}</td></tr>\n  <tr><td>Dates</td><td>${r.start_date} \u2192 ${r.end_date}</td></tr>\n  <tr><td>Days</td><td>${r.days}</td></tr>\n  <tr><td>Reason</td><td>${r.reason}</td></tr>\n  <tr><td>Reference</td><td>${r.code}</td></tr>\n  <tr><td>Status</td><td><span class=\"status\">${r.status}</span></td></tr>\n</table>\n</div>\n${r.status === 'pending' ? `\n<p><strong>Your decision:</strong></p>\n<button class=\"btn approve\" onclick=\"decide('approved')\">&#10003; Approve</button>\n<button class=\"btn reject\"  onclick=\"decide('rejected')\">&#10007; Reject</button>\n<p><label style=\"font-size:14px\">Note (optional):<br>\n<textarea id=\"note\" rows=\"2\" style=\"width:100%;margin-top:4px;border:1px solid #d1d5db;border-radius:4px;padding:8px\"></textarea>\n</label></p>\n<script>\nasync function decide(d){\n  const note = document.getElementById('note').value;\n  const resp = await fetch('${baseUrl}/webhook/pto-decide',{\n    method:'POST',headers:{'Content-Type':'application/json'},\n    body:JSON.stringify({token:'${token}',decision:d,note:note||null})\n  });\n  document.body.innerHTML = await resp.text();\n}\n</script>` : '<p style=\"color:#059669;font-weight:600\">This request has already been decided.</p>'}\n</body></html>`;\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "err-h12",
+      "name": "Build Error HTML 12",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        5830
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst msg = item.json?.message || item.json?.error?.description || 'Invalid or expired link';\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Link Error</title>\n<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}\n.card{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:24px;margin:24px 0}</style>\n</head><body>\n<h2>\u26a0\ufe0f Link Invalid or Expired</h2>\n<div class=\"card\"><p>${msg}</p></div>\n<p style=\"color:#6b7280;font-size:14px\">Approval links are single-use and expire after 48 hours.<br>\nPlease ask the employee to submit a new request.</p>\n</body></html>`;\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "rsp-s12",
+      "name": "Respond Success 12",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        5610
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "rsp-e12",
+      "name": "Respond Error 12",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        5830
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "wh-h13",
+      "name": "Webhook 13",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        6110
+      ],
+      "webhookId": "askops-pto-decide",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pto-decide",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "pg-decide-tok-13",
+      "name": "Decide by Token 13",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        6110
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT row_to_json(r.*) AS result\nFROM decide_pto_by_token(\n  '{{ $json.body?.token || $json.token }}',\n  '{{ $json.body?.decision || $json.decision }}',\n  {{ ($json.body?.note || $json.note) ? \"'\" + ($json.body?.note || $json.note).replace(/'/g, \"''\") + \"'\" : 'NULL' }}\n) r",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "suc-h13",
+      "name": "Build Success HTML 13",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        6110
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst row = item.result ? (typeof item.result === 'string' ? JSON.parse(item.result) : item.result) : item;\nconst decision = row.status || 'decided';\nconst color = decision === 'approved' ? '#059669' : '#dc2626';\nconst icon  = decision === 'approved' ? '\u2705' : '\u274c';\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Decision Recorded</title>\n<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}\n.icon{font-size:56px;display:block;margin-bottom:12px}\n.badge{display:inline-block;padding:6px 18px;border-radius:20px;font-size:16px;font-weight:600;color:#fff;background:${color};margin:12px 0}\n</style></head><body>\n<span class=\"icon\">${icon}</span>\n<h2>Decision Recorded</h2>\n<p>Request <strong>${row.code}</strong> has been:</p>\n<span class=\"badge\">${decision.toUpperCase()}</span>\n<p style=\"color:#6b7280;font-size:14px;margin-top:32px\">The employee will be notified. You can close this window.</p>\n</body></html>`;\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "err-h13",
+      "name": "Build Error HTML 13",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        6330
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Could not process decision').replace(/\\s*\\[line \\d+\\]$/, '');\nconst friendly = msg.includes('INVALID_LINK')\n  ? 'This approval link is invalid, expired, or has already been used.'\n  : msg;\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Error</title>\n<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}\n.card{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:24px;margin:24px 0}</style>\n</head><body>\n<h2>\u26a0\ufe0f Could Not Record Decision</h2>\n<div class=\"card\"><p>${friendly}</p></div>\n<p style=\"color:#6b7280;font-size:14px\">If the link has already been used, check your PTO system for the current status.</p>\n</body></html>`;\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "rsp-s13",
+      "name": "Respond Success 13",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        6110
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "rsp-e13",
+      "name": "Respond Error 13",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        6330
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -2869,7 +3138,7 @@
       "main": [
         [
           {
-            "node": "Format Output 7",
+            "node": "Build Email Content 7",
             "type": "main",
             "index": 0
           }
@@ -2877,6 +3146,42 @@
         [
           {
             "node": "Handle Error 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email Content 7": {
+      "main": [
+        [
+          {
+            "node": "Send Approval Email 7",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Approval Email 7": {
+      "main": [
+        [
+          {
+            "node": "Format Output 7",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Output 7",
             "type": "main",
             "index": 0
           }
@@ -3353,6 +3658,108 @@
           }
         ]
       ]
+    },
+    "Webhook 12": {
+      "main": [
+        [
+          {
+            "node": "Peek PTO Token 12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Peek PTO Token 12": {
+      "main": [
+        [
+          {
+            "node": "Build Success HTML 12",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error HTML 12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Success HTML 12": {
+      "main": [
+        [
+          {
+            "node": "Respond Success 12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error HTML 12": {
+      "main": [
+        [
+          {
+            "node": "Respond Error 12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook 13": {
+      "main": [
+        [
+          {
+            "node": "Decide by Token 13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide by Token 13": {
+      "main": [
+        [
+          {
+            "node": "Build Success HTML 13",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error HTML 13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Success HTML 13": {
+      "main": [
+        [
+          {
+            "node": "Respond Success 13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error HTML 13": {
+      "main": [
+        [
+          {
+            "node": "Respond Error 13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -3363,9 +3770,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "3c95ce18-a4c6-4d26-8a95-6a73edb3b35e",
-  "activeVersionId": "3c95ce18-a4c6-4d26-8a95-6a73edb3b35e",
-  "triggerCount": 11,
+  "versionId": "2bbd80b5-a426-4551-93cb-79f8e1e2a806",
+  "activeVersionId": "2bbd80b5-a426-4551-93cb-79f8e1e2a806",
+  "triggerCount": 13,
   "shared": [
     {
       "updatedAt": "2026-11-05T06:14:41.597Z",
@@ -3376,9 +3783,9 @@
     }
   ],
   "activeVersion": {
-    "updatedAt": "2026-11-05T07:43:40.219Z",
-    "createdAt": "2026-11-05T07:43:40.219Z",
-    "versionId": "3c95ce18-a4c6-4d26-8a95-6a73edb3b35e",
+    "updatedAt": "2026-11-05T08:15:41.382Z",
+    "createdAt": "2026-11-05T08:15:41.382Z",
+    "versionId": "2bbd80b5-a426-4551-93cb-79f8e1e2a806",
     "workflowId": "qhmoB9pZdLav12FB",
     "nodes": [
       {
@@ -4593,8 +5000,47 @@
         },
         "parameters": {
           "operation": "executeQuery",
-          "query": "WITH tok AS (SELECT gen_random_bytes(32) AS raw)\nINSERT INTO pto_requests\n  (workspace_id, employee_id, start_date, end_date, days, reason,\n   status, approval_token_hash, token_expires_at)\nSELECT '{{ $json.workspace_id }}'::uuid, '{{ $json.employee_id }}'::uuid,\n  '{{ $json.start_date }}'::date, '{{ $json.end_date }}'::date,\n  {{ $json.requested_days }}, '{{ $json.reason }}', 'pending',\n  encode(digest(raw, 'sha256'), 'hex'), now() + interval '48 hours'\nFROM tok\nRETURNING code, days::text, status",
+          "query": "WITH tok AS (SELECT gen_random_bytes(32) AS raw),\nins AS (\n  INSERT INTO pto_requests\n    (workspace_id, employee_id, start_date, end_date, days, reason,\n     status, approval_token_hash, token_expires_at)\n  SELECT '{{ $json.workspace_id }}'::uuid, '{{ $json.employee_id }}'::uuid,\n    '{{ $json.start_date }}'::date, '{{ $json.end_date }}'::date,\n    {{ $json.requested_days }}, '{{ $json.reason }}', 'pending',\n    encode(digest(raw, 'sha256'), 'hex'), now() + interval '48 hours'\n  FROM tok\n  RETURNING code, days::text AS days, status\n)\nSELECT\n  ins.code, ins.days, ins.status,\n  encode(tok.raw, 'hex') AS token_raw,\n  w.demo_manager_email, w.company_name, w.webhook_url,\n  e.full_name AS employee_name\nFROM ins\nCROSS JOIN tok\nJOIN workspaces w ON w.id = '{{ $json.workspace_id }}'::uuid\nJOIN employees e ON e.id = '{{ $json.employee_id }}'::uuid",
           "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "rpto-email-7",
+        "name": "Build Email Content 7",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1540,
+          3000
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json;\nconst ctx = $('Guard Check 7').first().json;\nconst baseUrl = r.webhook_url || 'http://localhost:5678';\nconst reviewUrl = baseUrl + '/webhook/pto-review?token=' + r.token_raw;\nconst html = `<!DOCTYPE html>\n<html><body style=\"font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px\">\n<h2 style=\"color:#1a56db\">PTO Request: Approval Needed</h2>\n<p>Hi Manager,</p>\n<p><strong>${r.employee_name}</strong> has requested time off:</p>\n<table style=\"border-collapse:collapse;width:100%;margin:20px 0\">\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Dates</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.start_date} \u2192 ${ctx.end_date}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Days</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.days}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reason</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.reason}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reference</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.code}</td></tr>\n</table>\n<a href=\"${reviewUrl}\" style=\"display:inline-block;padding:12px 28px;background:#1a56db;color:#fff;text-decoration:none;border-radius:6px;font-size:16px\">Review Request</a>\n<p style=\"color:#888;font-size:12px;margin-top:32px\">This link expires in 48 hours. Powered by AskOps \u2014 ${r.company_name}</p>\n</body></html>`;\nreturn [{ json: {\n  email_to: r.demo_manager_email,\n  email_subject: '[AskOps] PTO request from ' + r.employee_name + ': ' + r.code,\n  email_html: html,\n  code: r.code, days: r.days, status: r.status,\n  start_date: ctx.start_date, end_date: ctx.end_date\n}}];"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "rpto-send-7",
+        "name": "Send Approval Email 7",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          1760,
+          3000
+        ],
+        "parameters": {
+          "fromEmail": "g.adarsh043@gmail.com",
+          "toEmail": "={{ $json.email_to }}",
+          "subject": "={{ $json.email_subject }}",
+          "emailFormat": "html",
+          "html": "={{ $json.email_html }}",
+          "options": {}
+        },
+        "credentials": {
+          "smtp": {
+            "id": "8vmLF66qqfuLZu5m",
+            "name": "AskOps Gmail SMTP"
+          }
         },
         "onError": "continueErrorOutput"
       },
@@ -4604,11 +5050,11 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1540,
+          1980,
           3000
         ],
         "parameters": {
-          "jsCode": "const r = $input.first().json;\nconst ctx = $('Guard Check 7').first().json;\nconst body = $('Normalize Input 7').first().json;\nconst out = { code: r.code, days: r.days, status: r.status,\n              start_date: ctx.start_date, end_date: ctx.end_date,\n              message: 'PTO request submitted. Your manager will receive an approval email shortly.' };\nreturn [{ json: { ...out, _out: out, _tool_name: 'request_pto',\n  _in: { start_date: body.start_date, end_date: body.end_date, reason: body.reason },\n  _status: 'success', _error: null } }];"
+          "jsCode": "const r = $('Build Email Content 7').first().json;\nconst body = $('Normalize Input 7').first().json;\nconst out = { code: r.code, days: r.days, status: r.status,\n              start_date: r.start_date, end_date: r.end_date,\n              message: 'PTO request submitted. Your manager will receive an approval email shortly.' };\nreturn [{ json: { ...out, _out: out, _tool_name: 'request_pto',\n  _in: { start_date: body.start_date, end_date: body.end_date, reason: body.reason },\n  _status: 'success', _error: null } }];"
         }
       },
       {
@@ -4617,7 +5063,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1760,
+          2200,
           3110
         ],
         "parameters": {
@@ -4630,7 +5076,7 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          1980,
+          2420,
           3110
         ],
         "credentials": {
@@ -4651,7 +5097,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          2200,
+          2640,
           3110
         ],
         "parameters": {
@@ -5452,6 +5898,236 @@
         "parameters": {
           "jsCode": "const d = $('Handle Error 11').first().json;\nreturn [{ json: { error: d.error } }];"
         }
+      },
+      {
+        "id": "wh-h12",
+        "name": "Webhook 12",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          5610
+        ],
+        "webhookId": "askops-pto-review",
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "pto-review",
+          "responseMode": "responseNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "pg-peek-12",
+        "name": "Peek PTO Token 12",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          5610
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT code, employee_name, start_date::text, end_date::text, days::integer, reason, status\nFROM peek_pto_by_token('{{ $json.query.token }}')",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "suc-h12",
+        "name": "Build Success HTML 12",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          5610
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json;\nconst wh = $('Webhook 12').first().json;\nconst token = wh.query?.token || '';\nconst proto = wh.headers?.['x-forwarded-proto'] || 'http';\nconst host  = wh.headers?.host || 'localhost:5678';\nconst baseUrl = proto + '://' + host;\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Review PTO Request</title>\n<style>\nbody{font-family:sans-serif;max-width:560px;margin:60px auto;padding:0 20px}\nh1{color:#1a56db}\n.card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:24px;margin:24px 0}\ntable{width:100%;border-collapse:collapse}\ntd{padding:8px 12px;border-bottom:1px solid #e2e8f0}\ntd:first-child{font-weight:600;color:#374151;width:35%}\n.btn{display:inline-block;padding:12px 28px;border-radius:6px;font-size:15px;cursor:pointer;border:none;margin:4px}\n.approve{background:#059669;color:#fff}.reject{background:#dc2626;color:#fff}\n.status{display:inline-block;padding:3px 10px;border-radius:12px;font-size:13px;background:#fef3c7;color:#92400e}\n</style></head><body>\n<h1>PTO Request Review</h1>\n<p>Please review the following time-off request:</p>\n<div class=\"card\">\n<table>\n  <tr><td>Employee</td><td>${r.employee_name}</td></tr>\n  <tr><td>Dates</td><td>${r.start_date} \u2192 ${r.end_date}</td></tr>\n  <tr><td>Days</td><td>${r.days}</td></tr>\n  <tr><td>Reason</td><td>${r.reason}</td></tr>\n  <tr><td>Reference</td><td>${r.code}</td></tr>\n  <tr><td>Status</td><td><span class=\"status\">${r.status}</span></td></tr>\n</table>\n</div>\n${r.status === 'pending' ? `\n<p><strong>Your decision:</strong></p>\n<button class=\"btn approve\" onclick=\"decide('approved')\">&#10003; Approve</button>\n<button class=\"btn reject\"  onclick=\"decide('rejected')\">&#10007; Reject</button>\n<p><label style=\"font-size:14px\">Note (optional):<br>\n<textarea id=\"note\" rows=\"2\" style=\"width:100%;margin-top:4px;border:1px solid #d1d5db;border-radius:4px;padding:8px\"></textarea>\n</label></p>\n<script>\nasync function decide(d){\n  const note = document.getElementById('note').value;\n  const resp = await fetch('${baseUrl}/webhook/pto-decide',{\n    method:'POST',headers:{'Content-Type':'application/json'},\n    body:JSON.stringify({token:'${token}',decision:d,note:note||null})\n  });\n  document.body.innerHTML = await resp.text();\n}\n</script>` : '<p style=\"color:#059669;font-weight:600\">This request has already been decided.</p>'}\n</body></html>`;\nreturn [{ json: { html } }];"
+        }
+      },
+      {
+        "id": "err-h12",
+        "name": "Build Error HTML 12",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          5830
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst msg = item.json?.message || item.json?.error?.description || 'Invalid or expired link';\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Link Error</title>\n<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}\n.card{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:24px;margin:24px 0}</style>\n</head><body>\n<h2>\u26a0\ufe0f Link Invalid or Expired</h2>\n<div class=\"card\"><p>${msg}</p></div>\n<p style=\"color:#6b7280;font-size:14px\">Approval links are single-use and expire after 48 hours.<br>\nPlease ask the employee to submit a new request.</p>\n</body></html>`;\nreturn [{ json: { html } }];"
+        }
+      },
+      {
+        "id": "rsp-s12",
+        "name": "Respond Success 12",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          660,
+          5610
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "rsp-e12",
+        "name": "Respond Error 12",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          440,
+          5830
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "wh-h13",
+        "name": "Webhook 13",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          6110
+        ],
+        "webhookId": "askops-pto-decide",
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "pto-decide",
+          "responseMode": "responseNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "pg-decide-tok-13",
+        "name": "Decide by Token 13",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          220,
+          6110
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        },
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT row_to_json(r.*) AS result\nFROM decide_pto_by_token(\n  '{{ $json.body?.token || $json.token }}',\n  '{{ $json.body?.decision || $json.decision }}',\n  {{ ($json.body?.note || $json.note) ? \"'\" + ($json.body?.note || $json.note).replace(/'/g, \"''\") + \"'\" : 'NULL' }}\n) r",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "suc-h13",
+        "name": "Build Success HTML 13",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          440,
+          6110
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst row = item.result ? (typeof item.result === 'string' ? JSON.parse(item.result) : item.result) : item;\nconst decision = row.status || 'decided';\nconst color = decision === 'approved' ? '#059669' : '#dc2626';\nconst icon  = decision === 'approved' ? '\u2705' : '\u274c';\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Decision Recorded</title>\n<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}\n.icon{font-size:56px;display:block;margin-bottom:12px}\n.badge{display:inline-block;padding:6px 18px;border-radius:20px;font-size:16px;font-weight:600;color:#fff;background:${color};margin:12px 0}\n</style></head><body>\n<span class=\"icon\">${icon}</span>\n<h2>Decision Recorded</h2>\n<p>Request <strong>${row.code}</strong> has been:</p>\n<span class=\"badge\">${decision.toUpperCase()}</span>\n<p style=\"color:#6b7280;font-size:14px;margin-top:32px\">The employee will be notified. You can close this window.</p>\n</body></html>`;\nreturn [{ json: { html } }];"
+        }
+      },
+      {
+        "id": "err-h13",
+        "name": "Build Error HTML 13",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          6330
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Could not process decision').replace(/\\s*\\[line \\d+\\]$/, '');\nconst friendly = msg.includes('INVALID_LINK')\n  ? 'This approval link is invalid, expired, or has already been used.'\n  : msg;\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Error</title>\n<style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:0 20px}\n.card{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:24px;margin:24px 0}</style>\n</head><body>\n<h2>\u26a0\ufe0f Could Not Record Decision</h2>\n<div class=\"card\"><p>${friendly}</p></div>\n<p style=\"color:#6b7280;font-size:14px\">If the link has already been used, check your PTO system for the current status.</p>\n</body></html>`;\nreturn [{ json: { html } }];"
+        }
+      },
+      {
+        "id": "rsp-s13",
+        "name": "Respond Success 13",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          660,
+          6110
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "rsp-e13",
+        "name": "Respond Error 13",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          440,
+          6330
+        ],
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                }
+              ]
+            }
+          }
+        }
       }
     ],
     "connections": {
@@ -6244,7 +6920,7 @@
         "main": [
           [
             {
-              "node": "Format Output 7",
+              "node": "Build Email Content 7",
               "type": "main",
               "index": 0
             }
@@ -6252,6 +6928,42 @@
           [
             {
               "node": "Handle Error 7",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Email Content 7": {
+        "main": [
+          [
+            {
+              "node": "Send Approval Email 7",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Handle Error 7",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Approval Email 7": {
+        "main": [
+          [
+            {
+              "node": "Format Output 7",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Format Output 7",
               "type": "main",
               "index": 0
             }
@@ -6723,6 +7435,108 @@
           [
             {
               "node": "Prepare Log 11",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook 12": {
+        "main": [
+          [
+            {
+              "node": "Peek PTO Token 12",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Peek PTO Token 12": {
+        "main": [
+          [
+            {
+              "node": "Build Success HTML 12",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Error HTML 12",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Success HTML 12": {
+        "main": [
+          [
+            {
+              "node": "Respond Success 12",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Error HTML 12": {
+        "main": [
+          [
+            {
+              "node": "Respond Error 12",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook 13": {
+        "main": [
+          [
+            {
+              "node": "Decide by Token 13",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Decide by Token 13": {
+        "main": [
+          [
+            {
+              "node": "Build Success HTML 13",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Error HTML 13",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Success HTML 13": {
+        "main": [
+          [
+            {
+              "node": "Respond Success 13",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Error HTML 13": {
+        "main": [
+          [
+            {
+              "node": "Respond Error 13",
               "type": "main",
               "index": 0
             }

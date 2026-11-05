@@ -20,6 +20,7 @@ CREATE TABLE workspaces (
   status              text NOT NULL DEFAULT 'building'
                         CHECK (status IN ('building', 'ready', 'failed')),
   demo_manager_email  text,                       -- real inbox that receives approval emails
+  webhook_url         text NOT NULL DEFAULT 'http://localhost:5678', -- base URL for approval links in emails
   created_at          timestamptz NOT NULL DEFAULT now(),
   expires_at          timestamptz NOT NULL DEFAULT now() + interval '24 hours'
 );
@@ -338,7 +339,7 @@ DECLARE
 BEGIN
   SELECT id INTO v_id
   FROM pto_requests
-  WHERE approval_token_hash = encode(sha256(convert_to(p_token, 'UTF8')), 'hex')
+  WHERE approval_token_hash = encode(sha256(decode(p_token, 'hex')), 'hex')
     AND token_expires_at > now();
 
   IF v_id IS NULL THEN
@@ -352,12 +353,18 @@ END $$;
 CREATE OR REPLACE FUNCTION peek_pto_by_token(p_token text)
 RETURNS TABLE (code text, employee_name text, start_date date, end_date date,
                days numeric, reason text, status text)
-LANGUAGE sql STABLE AS $$
-  SELECT p.code, e.full_name, p.start_date, p.end_date, p.days, p.reason, p.status
-  FROM pto_requests p
-  JOIN employees e ON e.id = p.employee_id
-  WHERE p.approval_token_hash = encode(sha256(convert_to(p_token, 'UTF8')), 'hex')
-    AND p.token_expires_at > now();
+LANGUAGE plpgsql STABLE AS $$
+BEGIN
+  RETURN QUERY
+    SELECT p.code, e.full_name, p.start_date, p.end_date, p.days, p.reason, p.status
+    FROM pto_requests p
+    JOIN employees e ON e.id = p.employee_id
+    WHERE p.approval_token_hash = encode(sha256(decode(p_token, 'hex')), 'hex')
+      AND p.token_expires_at > now();
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'INVALID_LINK: This approval link is invalid or has expired.';
+  END IF;
+END;
 $$;
 
 -- The ONLY way to read salaries. SECURITY DEFINER lets it read a table that

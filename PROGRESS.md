@@ -20,14 +20,15 @@ Status key: [ ] not started · [~] in progress · [x] done
 - [x] create_ticket, get_ticket_status
 - [x] get_compensation (employee gets `denied`; HR gets salary)
 - [x] escalate_to_human, submit_feedback
-- [x] All 11 tools consolidated into single `mcp.ask-ops` workflow (127 nodes, qhmoB9pZdLav12FB); 12 originals deleted; all verified end-to-end
+- [x] All 11 tools consolidated into single `mcp.ask-ops` workflow (141 nodes, qhmoB9pZdLav12FB); 12 originals deleted; all verified end-to-end
 
 ## Phase 2: Email approval loop
-- [ ] Gmail App Password + SMTP credential
-- [ ] Approval email template (company name, request details, Review button)
-- [ ] `api.pto-review` GET → confirmation page (peek_pto_by_token)
-- [ ] `api.pto-decide` POST → decide_pto_by_token → result page
-- [ ] Tested through the tunnel on a phone
+- [x] Gmail App Password + SMTP credential (n8n credential ID: 8vmLF66qqfuLZu5m)
+- [x] Approval email template (company name, request details, Review button) — best-effort: PTO request succeeds even if email fails
+- [x] `api.pto-review` GET → HTML confirmation page (`peek_pto_by_token`); invalid/expired token → HTML error page
+- [x] `api.pto-decide` POST → `decide_pto_by_token` → HTML result page (approved/rejected badge); single-use token (hash nulled after use)
+- [x] Full flow tested locally: request_pto → email sent to g.adarsh043@gmail.com → /pto-review → Approve → DB status=approved → stale link returns error HTML
+- [ ] Tested through the tunnel on a phone (tunnel URL must be set in workspaces.webhook_url)
 
 ## Phase 3: Knowledge ingestion
 - [ ] search_kb: Gemini embedding → lookup_cache → match_chunks → cited answer
@@ -91,6 +92,10 @@ Status key: [ ] not started · [~] in progress · [x] done
 | 2026-11-05 | Use `json_agg` in SQL for list queries | n8n skips Code nodes with 0 input items, breaking the pipeline; aggregating in SQL guarantees exactly 1 output row |
 | 2026-11-05 | Consolidate all tools into one `mcp.ask-ops` workflow | Easier to demo on one canvas; `scripts/build_mcp_workflow.py` regenerates it; webhook paths unchanged so curl tests still work |
 | 2026-11-05 | SQL templates referencing original user input must use `$('Normalize Input N')` not `$json` | After Get Identity runs, `$json` = identity row (no user fields); node references access any prior node's output |
+| 2026-11-05 | `webhook_url` stored in `workspaces` table, not an env var | n8n Code node sandbox blocks env var reads; each workspace's approval email links need the right base URL for tunnel vs local |
+| 2026-11-05 | HTML webhook branches use `respondToWebhook` with `responseMode: 'responseNode'`; `respondWith: 'text'` → param is `responseBody` not `body` | n8n source confirms `responseBody` is the parameter name for text/HTML responses |
+| 2026-11-05 | `peek_pto_by_token` and `decide_pto_by_token` must use `decode(p_token, 'hex')` not `convert_to(p_token, 'UTF8')` | Token in email link is hex-encoded raw bytes; hashing the hex string chars produces a different hash than hashing the original bytes |
+| 2026-11-05 | `peek_pto_by_token` changed from SQL to plpgsql to raise `INVALID_LINK` on 0 rows | n8n Postgres node with 0-row result skips all downstream nodes, so `respondToWebhook` is never reached; raising an exception routes to the error output path |
 
 ## Risks and open questions
 

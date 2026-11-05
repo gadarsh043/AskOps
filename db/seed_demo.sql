@@ -6,9 +6,9 @@ BEGIN;
 
 DELETE FROM workspaces WHERE id = '00000000-0000-0000-0000-000000000001';
 
-INSERT INTO workspaces (id, company_name, website_url, industry, status, demo_manager_email, expires_at)
+INSERT INTO workspaces (id, company_name, website_url, industry, status, demo_manager_email, webhook_url, expires_at)
 VALUES ('00000000-0000-0000-0000-000000000001', 'Northwind Labs', NULL, 'Software',
-        'ready', 'change-me@example.com', now() + interval '100 years');
+        'ready', 'your-email@example.com', 'http://localhost:5678', now() + interval '100 years');
 
 -- Pass 1: people (managers set in pass 2)
 INSERT INTO employees (id, workspace_id, employee_code, full_name, email, title, department,
