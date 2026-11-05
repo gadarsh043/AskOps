@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-05T06:41:26.295Z",
+  "updatedAt": "2026-11-05T06:56:01.666Z",
   "createdAt": "2026-11-05T06:37:58.785Z",
   "id": "360uNOT9fXqwwFUc",
   "name": "tool.get_my_profile",
@@ -152,7 +152,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nconst msg = item.json?.error?.message || item.json?.message || 'Tool error';\n// Map CODE: prefix to friendly message and status\nlet status = 'error';\nlet friendly = msg;\nconst code = msg.match(/^([A-Z_]+):/)?.[1];\nconst codeMap = {\n  ACCESS_DENIED:        ['denied',  'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',   'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',   'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',   'This request has already been decided.'],\n  INVALID_LINK:         ['error',   'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n}\n// Use _tool_name passed through or fall back\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
+        "jsCode": "const item = $input.first();\n// Postgres continueErrorOutput \u2192 item.json.message; Code node throw \u2192 item.json.error (string)\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Tool error').replace(/\\s*\\[line \\d+\\]$/, '');\n// Map well-known CODE: prefixes; for unknown codes strip the prefix and pass the rest through\nlet status = 'error';\nlet friendly = msg;\nconst m = msg.match(/^([A-Z_]+):\\s*(.*)/s);\nconst code = m?.[1];\nconst rest = m?.[2] || msg;\nconst codeMap = {\n  ACCESS_DENIED:        ['denied', 'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',  'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',  'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',  'This request has already been decided.'],\n  INVALID_LINK:         ['error',  'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n} else if (code) {\n  // Unknown CODE: prefix \u2014 use the human-readable part after the colon\n  friendly = rest;\n}\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
       },
       "id": "err-handler",
       "name": "Handle Error",
@@ -325,8 +325,8 @@
   "staticData": null,
   "meta": null,
   "pinData": null,
-  "versionId": "db585d44-ff25-45ba-877d-f97079798312",
-  "activeVersionId": "db585d44-ff25-45ba-877d-f97079798312",
+  "versionId": "b0e016b2-716e-4995-a24b-d816b92cc6c4",
+  "activeVersionId": "b0e016b2-716e-4995-a24b-d816b92cc6c4",
   "triggerCount": 1,
   "shared": [
     {
@@ -338,9 +338,9 @@
     }
   ],
   "activeVersion": {
-    "updatedAt": "2026-11-05T06:38:44.663Z",
-    "createdAt": "2026-11-05T06:38:44.663Z",
-    "versionId": "db585d44-ff25-45ba-877d-f97079798312",
+    "updatedAt": "2026-11-05T06:56:01.666Z",
+    "createdAt": "2026-11-05T06:56:01.666Z",
+    "versionId": "b0e016b2-716e-4995-a24b-d816b92cc6c4",
     "workflowId": "360uNOT9fXqwwFUc",
     "nodes": [
       {
@@ -489,7 +489,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const item = $input.first();\nconst msg = item.json?.error?.message || item.json?.message || 'Tool error';\n// Map CODE: prefix to friendly message and status\nlet status = 'error';\nlet friendly = msg;\nconst code = msg.match(/^([A-Z_]+):/)?.[1];\nconst codeMap = {\n  ACCESS_DENIED:        ['denied',  'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',   'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',   'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',   'This request has already been decided.'],\n  INVALID_LINK:         ['error',   'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n}\n// Use _tool_name passed through or fall back\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
+          "jsCode": "const item = $input.first();\n// Postgres continueErrorOutput \u2192 item.json.message; Code node throw \u2192 item.json.error (string)\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Tool error').replace(/\\s*\\[line \\d+\\]$/, '');\n// Map well-known CODE: prefixes; for unknown codes strip the prefix and pass the rest through\nlet status = 'error';\nlet friendly = msg;\nconst m = msg.match(/^([A-Z_]+):\\s*(.*)/s);\nconst code = m?.[1];\nconst rest = m?.[2] || msg;\nconst codeMap = {\n  ACCESS_DENIED:        ['denied', 'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',  'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',  'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',  'This request has already been decided.'],\n  INVALID_LINK:         ['error',  'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n} else if (code) {\n  // Unknown CODE: prefix \u2014 use the human-readable part after the colon\n  friendly = rest;\n}\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
         },
         "id": "err-handler",
         "name": "Handle Error",

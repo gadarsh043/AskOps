@@ -10,6 +10,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname askops \
   -v app_password="$APP_DB_PASSWORD" -f /askops-db/roles.sql
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname askops \
+  -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname askops \
   -f /askops-db/schema.sql
 
 echo "askops database ready"

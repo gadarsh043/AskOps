@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-05T06:42:30.956Z",
+  "updatedAt": "2026-11-05T06:56:01.775Z",
   "createdAt": "2026-11-05T06:40:07.739Z",
   "id": "vHOI2kIlcM44bQmL",
   "name": "tool.get_compensation",
@@ -200,7 +200,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nconst msg = item.json?.message || item.json?.error?.description || 'Tool error';\nlet status = 'error';\nlet friendly = msg;\nconst code = String(msg).match(/^([A-Z_]+):/)?.[1];\nconst codeMap = {\n  ACCESS_DENIED: ['denied',  'You do not have permission to view compensation data.'],\n  NOT_FOUND:     ['error',   'Employee not found.'],\n};\nif (code && codeMap[code]) [status, friendly] = codeMap[code];\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: 'get_compensation',\n  _lin:   esc(JSON.stringify({ target: $('Normalize Input').first().json.employee_name_or_code || '' })),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
+        "jsCode": "const item = $input.first();\n// Postgres continueErrorOutput \u2192 item.json.message; Code node throw \u2192 item.json.error (string)\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Tool error').replace(/\\s*\\[line \\d+\\]$/, '');\n// Map well-known CODE: prefixes; for unknown codes strip the prefix and pass the rest through\nlet status = 'error';\nlet friendly = msg;\nconst m = msg.match(/^([A-Z_]+):\\s*(.*)/s);\nconst code = m?.[1];\nconst rest = m?.[2] || msg;\nconst codeMap = {\n  ACCESS_DENIED:        ['denied', 'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',  'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',  'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',  'This request has already been decided.'],\n  INVALID_LINK:         ['error',  'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n} else if (code) {\n  // Unknown CODE: prefix \u2014 use the human-readable part after the colon\n  friendly = rest;\n}\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
       },
       "id": "err-handler",
       "name": "Handle Error",
@@ -413,8 +413,8 @@
   "staticData": null,
   "meta": null,
   "pinData": null,
-  "versionId": "12dfcbe2-466d-47dc-8d00-71720f9a2ed1",
-  "activeVersionId": "12dfcbe2-466d-47dc-8d00-71720f9a2ed1",
+  "versionId": "0b3269af-bf1b-47c4-bcbd-dbb302fb2f6c",
+  "activeVersionId": "0b3269af-bf1b-47c4-bcbd-dbb302fb2f6c",
   "triggerCount": 1,
   "shared": [
     {
@@ -426,9 +426,9 @@
     }
   ],
   "activeVersion": {
-    "updatedAt": "2026-11-05T06:42:30.957Z",
-    "createdAt": "2026-11-05T06:42:30.957Z",
-    "versionId": "12dfcbe2-466d-47dc-8d00-71720f9a2ed1",
+    "updatedAt": "2026-11-05T06:56:01.775Z",
+    "createdAt": "2026-11-05T06:56:01.775Z",
+    "versionId": "0b3269af-bf1b-47c4-bcbd-dbb302fb2f6c",
     "workflowId": "vHOI2kIlcM44bQmL",
     "nodes": [
       {
@@ -625,7 +625,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const item = $input.first();\nconst msg = item.json?.message || item.json?.error?.description || 'Tool error';\nlet status = 'error';\nlet friendly = msg;\nconst code = String(msg).match(/^([A-Z_]+):/)?.[1];\nconst codeMap = {\n  ACCESS_DENIED: ['denied',  'You do not have permission to view compensation data.'],\n  NOT_FOUND:     ['error',   'Employee not found.'],\n};\nif (code && codeMap[code]) [status, friendly] = codeMap[code];\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: 'get_compensation',\n  _lin:   esc(JSON.stringify({ target: $('Normalize Input').first().json.employee_name_or_code || '' })),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
+          "jsCode": "const item = $input.first();\n// Postgres continueErrorOutput \u2192 item.json.message; Code node throw \u2192 item.json.error (string)\nconst rawErr = item.json?.error;\nconst msg = (item.json?.message\n         || (typeof rawErr === 'string' ? rawErr : rawErr?.description)\n         || 'Tool error').replace(/\\s*\\[line \\d+\\]$/, '');\n// Map well-known CODE: prefixes; for unknown codes strip the prefix and pass the rest through\nlet status = 'error';\nlet friendly = msg;\nconst m = msg.match(/^([A-Z_]+):\\s*(.*)/s);\nconst code = m?.[1];\nconst rest = m?.[2] || msg;\nconst codeMap = {\n  ACCESS_DENIED:        ['denied', 'You do not have permission to perform this action.'],\n  INSUFFICIENT_BALANCE: ['error',  'Insufficient PTO balance for this request.'],\n  NOT_FOUND:            ['error',  'The requested resource was not found.'],\n  ALREADY_DECIDED:      ['error',  'This request has already been decided.'],\n  INVALID_LINK:         ['error',  'This approval link is invalid or has expired.'],\n};\nif (code && codeMap[code]) {\n  [status, friendly] = codeMap[code];\n} else if (code) {\n  // Unknown CODE: prefix \u2014 use the human-readable part after the colon\n  friendly = rest;\n}\nconst id = $('Get Identity').first().json;\nconst start = $('Normalize Input').first().json._start_at;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  error: friendly,\n  _lws:   id.workspace_id,\n  _lemp:  id.employee_id ?? null,\n  _ltool: $('Normalize Input').first().json._tool,\n  _lin:   esc(JSON.stringify({})),\n  _lout:  null,\n  _lst:   status,\n  _lerr:  esc(friendly),\n  _llat:  Date.now() - start\n}}];"
         },
         "id": "err-handler",
         "name": "Handle Error",
