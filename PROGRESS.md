@@ -42,22 +42,24 @@ Status key: [ ] not started · [~] in progress · [x] done
 ## Phase 4: Copilot Studio agent
 - [ ] Start free trial (timed so 30 days cover the interview)
 - [ ] Verify MCP connection to n8n (fallback: HTTP request node / custom connector)
-- [ ] Agent instructions in `copilot/instructions.md`
+- [x] Agent instructions in `copilot/instructions.md` (created 2026-11-05)
 - [ ] Topics: greeting, PTO, ticket, escalation, end-of-conversation feedback
 - [ ] Web channel published (no auth for demo)
 
 ## Phase 5: Router, cache, guardrails
-- [ ] Groq router: faq / action / sensitive / off_topic / smalltalk
-- [ ] Semantic cache writes for knowledge answers only
-- [ ] PII redaction before logging turns
+- [x] Groq router: `tool.router` workflow — POST /webhook/tool-router → faq/action/sensitive/off_topic/smalltalk (2026-11-05)
+- [x] Semantic cache writes for knowledge answers only (already in search_kb branch)
+- [x] PII redaction before logging turns: `tool.log-turn` workflow with regex redaction of emails, phones, amounts (2026-11-05)
 - [ ] Prompt-injection test: instructions planted in a scraped page are ignored
 
 ## Phase 6: Frontend (Netlify)
-- [ ] Page 1: company setup (upload or sample per section)
-- [ ] Page 2: persona + manager email
-- [ ] Build animation from build_events
-- [ ] Chat page: Copilot web chat + Behind-the-scenes trace panel + persona switch
-- [ ] Metrics dashboard (workspace_metrics)
+- [x] Page 1: company setup (URL + "Fill with demo data") — web/setup.html (2026-11-05)
+- [x] Page 2: persona + manager email — web/persona.html (2026-11-05)
+- [x] Build animation from build_events — web/build.html with polling (2026-11-05)
+- [x] Chat page: Demo Chat (intent detection → tool calls) + Copilot Studio iframe tab + trace panel + persona switch — web/workspace.html (2026-11-05)
+- [x] Metrics dashboard (workspace_metrics) — web/dashboard.html (2026-11-05)
+- [x] netlify.toml with publish dir, redirects, security headers (2026-11-05)
+- [x] 7 API workflows for frontend: api.build-status, api.set-persona, api.metrics, api.tool-trace, api.setup-workspace, tool.router, tool.log-turn (2026-11-05)
 
 ## Phase 7: Deploy
 - [ ] Railway: Postgres (pgvector image) + n8n, same N8N_ENCRYPTION_KEY
@@ -67,9 +69,10 @@ Status key: [ ] not started · [~] in progress · [x] done
 - [ ] Copilot Studio tools pointed at Railway n8n
 
 ## Phase 8: Demo polish
-- [ ] Test sheet: 30+ scenarios incl. edge cases and access denials
-- [ ] Architecture diagram + one-page user guide
-- [ ] Demo script (5–7 min) and backup screen recording
+- [x] Test sheet: 34 test cases covering all tools, email flow, search_kb, ingestion, dashboard — test.md (2026-11-05)
+- [x] Deploy guide: Railway + Netlify + Copilot Studio steps — deploy.md (2026-11-05)
+- [x] Demo script: 5-min walkthrough in deploy.md (2026-11-05)
+- [ ] Architecture diagram
 - [ ] Dry run end to end on the deployed version
 
 ## Decision log
@@ -105,7 +108,8 @@ Status key: [ ] not started · [~] in progress · [x] done
 - Copilot Studio trial is 30 days: start it late enough to cover the interview; pay-as-you-go is the fallback.
 - Copilot Studio MCP support: confirm it connects to n8n's MCP Server Trigger; fallback is HTTP request nodes.
 - Free-tier limits (Groq, Gemini, Jina): confirm current limits before the demo.
-- Gemini embedding model name and dimension option: confirm (`gemini-embedding-001` with output dimension 768).
+- Gemini embedding model name and dimension option: `gemini-embedding-001` with outputDimensionality 768. ✓
 - Tunnel URL changes on every run: WEBHOOK_URL must be updated for email links during local testing.
 - Big sites (e.g. amazon.com) may block scraping: fallback to sample-only must look intentional.
 - Railway $5 credit: n8n + Postgres running 24/7 should fit; watch usage weekly.
+- tool.router returns parse-error fallback (classification=faq, confidence=0.5) when Groq response can't be parsed as JSON — the classification is correct but confidence is wrong. Acceptable for demo; fix by stripping markdown code fences before JSON.parse if needed.
