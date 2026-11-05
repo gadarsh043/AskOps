@@ -22,8 +22,12 @@ def api_get(path):
     with urllib.request.urlopen(req) as r:
         return json.loads(r.read())
 
+# Only export AskOps workflows (naming convention: tool., lib., mcp., api., ingest., cron.)
+ASKOPS_PREFIXES = ("tool.", "lib.", "mcp.", "api.", "ingest.", "cron.")
 data = api_get("/api/v1/workflows?limit=250")
-workflows = data.get("data", [])
+all_workflows = data.get("data", [])
+workflows = [w for w in all_workflows if any(w["name"].startswith(p) for p in ASKOPS_PREFIXES)]
+print(f"Filtering {len(all_workflows)} total → {len(workflows)} AskOps workflow(s)")
 
 for w in workflows:
     slug = re.sub(r"[^a-zA-Z0-9._-]", "_", w["name"]).strip("_") or "workflow"

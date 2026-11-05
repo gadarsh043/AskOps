@@ -1,0 +1,487 @@
+{
+  "updatedAt": "2026-11-05T06:32:44.741Z",
+  "createdAt": "2026-11-05T06:29:14.116Z",
+  "id": "DoatRsTWatCxddh9",
+  "name": "lib.identity-and-log",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ewt",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lib-identity-and-log",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        220
+      ],
+      "webhookId": "askops-lib-ial"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item.body ?? item;\nreturn [{ json: body }];"
+      },
+      "id": "normalize",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        110
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.phase }}",
+                    "rightValue": "identity",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "identity"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.phase }}",
+                    "rightValue": "log",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "log"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch",
+      "name": "Phase",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        440,
+        110
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM current_identity()",
+        "options": {}
+      },
+      "id": "pg-id",
+      "name": "Get Identity",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  workspace_id: d.workspace_id ?? null,\n  employee_id:  d.employee_id  ?? null,\n  tool_name:    esc(d.tool_name),\n  input_j:      esc(JSON.stringify(d.input ?? {})),\n  output_j:     d.output != null ? esc(JSON.stringify(d.output)) : null,\n  status:       d.status,\n  error_msg:    esc(d.error) ?? null,\n  latency_ms:   d.latency_ms ?? null\n} }];"
+      },
+      "id": "prep-log",
+      "name": "Prepare Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tool_calls\n  (workspace_id, employee_id, tool_name, input, output, status, error, latency_ms)\nVALUES (\n  {{ $json.workspace_id ? \"'\" + $json.workspace_id + \"'\" : 'NULL' }}::uuid,\n  {{ $json.employee_id  ? \"'\" + $json.employee_id  + \"'\" : 'NULL' }}::uuid,\n  '{{ $json.tool_name }}',\n  '{{ $json.input_j }}'::jsonb,\n  {{ $json.output_j ? \"'\" + $json.output_j + \"'\" : 'NULL' }}::jsonb,\n  '{{ $json.status }}',\n  {{ $json.error_msg ? \"'\" + $json.error_msg + \"'\" : 'NULL' }},\n  {{ $json.latency_ms ?? 'NULL' }}::integer\n)\nRETURNING id",
+        "options": {}
+      },
+      "id": "pg-log",
+      "name": "Log Tool Call",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        880,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "4DuuvBbohpSo7Mr0",
+          "name": "AskOps Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Phase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phase": {
+      "main": [
+        [
+          {
+            "node": "Get Identity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Log": {
+      "main": [
+        [
+          {
+            "node": "Log Tool Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "9cb38834-48a9-4ff9-8ba4-47460fa46ca2",
+  "activeVersionId": "9cb38834-48a9-4ff9-8ba4-47460fa46ca2",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-11-05T06:29:14.121Z",
+      "createdAt": "2026-11-05T06:29:14.121Z",
+      "role": "workflow:owner",
+      "workflowId": "DoatRsTWatCxddh9",
+      "projectId": "vNqFHw0LIVUB8gJu"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-11-05T06:32:44.743Z",
+    "createdAt": "2026-11-05T06:32:44.743Z",
+    "versionId": "9cb38834-48a9-4ff9-8ba4-47460fa46ca2",
+    "workflowId": "DoatRsTWatCxddh9",
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "ewt",
+        "name": "Execute Workflow Trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "lib-identity-and-log",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "id": "wh",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          220
+        ],
+        "webhookId": "askops-lib-ial"
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst body = item.body ?? item;\nreturn [{ json: body }];"
+        },
+        "id": "normalize",
+        "name": "Normalize Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          110
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "rules",
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict"
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.phase }}",
+                      "rightValue": "identity",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "identity"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict"
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.phase }}",
+                      "rightValue": "log",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "log"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "switch",
+        "name": "Phase",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3,
+        "position": [
+          440,
+          110
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT * FROM current_identity()",
+          "options": {}
+        },
+        "id": "pg-id",
+        "name": "Get Identity",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          660,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const d = $input.first().json;\nconst esc = s => s == null ? null : String(s).replace(/'/g, \"''\");\nreturn [{ json: {\n  workspace_id: d.workspace_id ?? null,\n  employee_id:  d.employee_id  ?? null,\n  tool_name:    esc(d.tool_name),\n  input_j:      esc(JSON.stringify(d.input ?? {})),\n  output_j:     d.output != null ? esc(JSON.stringify(d.output)) : null,\n  status:       d.status,\n  error_msg:    esc(d.error) ?? null,\n  latency_ms:   d.latency_ms ?? null\n} }];"
+        },
+        "id": "prep-log",
+        "name": "Prepare Log",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          660,
+          220
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO tool_calls\n  (workspace_id, employee_id, tool_name, input, output, status, error, latency_ms)\nVALUES (\n  {{ $json.workspace_id ? \"'\" + $json.workspace_id + \"'\" : 'NULL' }}::uuid,\n  {{ $json.employee_id  ? \"'\" + $json.employee_id  + \"'\" : 'NULL' }}::uuid,\n  '{{ $json.tool_name }}',\n  '{{ $json.input_j }}'::jsonb,\n  {{ $json.output_j ? \"'\" + $json.output_j + \"'\" : 'NULL' }}::jsonb,\n  '{{ $json.status }}',\n  {{ $json.error_msg ? \"'\" + $json.error_msg + \"'\" : 'NULL' }},\n  {{ $json.latency_ms ?? 'NULL' }}::integer\n)\nRETURNING id",
+          "options": {}
+        },
+        "id": "pg-log",
+        "name": "Log Tool Call",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          880,
+          220
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "4DuuvBbohpSo7Mr0",
+            "name": "AskOps Postgres"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Execute Workflow Trigger": {
+        "main": [
+          [
+            {
+              "node": "Normalize Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Input": {
+        "main": [
+          [
+            {
+              "node": "Phase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Phase": {
+        "main": [
+          [
+            {
+              "node": "Get Identity",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Prepare Log",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Log": {
+        "main": [
+          [
+            {
+              "node": "Log Tool Call",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Adarsh Gella",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}
