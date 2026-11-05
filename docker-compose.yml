@@ -1,0 +1,60 @@
+# Local stack that mirrors Railway: Postgres 16 + pgvector, and n8n.
+#
+# Default (Postgres only — your existing n8n runs externally on port 5678):
+#   docker compose up -d
+#
+# Railway-parity (run n8n inside compose as well):
+#   docker compose --profile local-n8n up -d
+#
+# Stop:  docker compose down     Wipe data: docker compose down -v
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: n8n                     # n8n's own database; app data lives in "askops"
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}  # used by db/init/01-init.sh for role askops_app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./db:/askops-db:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d n8n"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    profiles: [local-n8n]   # not started by default; your existing n8n runs externally
+    image: n8nio/n8n:${N8N_VERSION:-latest}   # pin N8N_VERSION in .env to match Railway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      WEBHOOK_URL: ${WEBHOOK_URL}           # public base URL used in approval-email links
+      GENERIC_TIMEZONE: ${TZ}
+      TZ: ${TZ}
+      N8N_SECURE_COOKIE: "false"            # local http only; remove on Railway
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows          # export/import target, committed to git
+
+volumes:
+  pgdata:
+  n8n_data:
