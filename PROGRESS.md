@@ -13,13 +13,14 @@ Status key: [ ] not started · [~] in progress · [x] done
 
 ## Phase 1: Tools (n8n MCP server), tested with curl before Copilot
 - [ ] MCP Server Trigger workflow exposing tools
-- [x] Shared sub-workflow: `current_identity()` + `tool_calls` logging + error mapping (lib.identity-and-log; pattern embedded in every tool)
+- [x] Shared sub-workflow: `current_identity()` + `tool_calls` logging + error mapping (embedded in every branch of unified workflow)
 - [x] get_my_profile, get_pto_balance, get_my_requests
 - [x] request_pto (balance + weekday + overlap check; pgcrypto token hash stored; email in Phase 2)
 - [x] list_pending_pto, decide_pto (HR only; denial logged as `denied` via Postgres DO block)
 - [x] create_ticket, get_ticket_status
 - [x] get_compensation (employee gets `denied`; HR gets salary)
 - [x] escalate_to_human, submit_feedback
+- [x] All 11 tools consolidated into single `mcp.ask-ops` workflow (127 nodes, qhmoB9pZdLav12FB); 12 originals deleted; all verified end-to-end
 
 ## Phase 2: Email approval loop
 - [ ] Gmail App Password + SMTP credential
@@ -88,6 +89,8 @@ Status key: [ ] not started · [~] in progress · [x] done
 | 2026-11-05 | HR access checks in Postgres DO blocks, not Code nodes | n8n's sandbox strips everything before the first `:` from thrown Error messages, so `CODE:` prefixes in Code node throws are lost; DO blocks preserve the full message in `item.json.message` |
 | 2026-11-05 | pgcrypto enabled at DB init for PTO token generation | n8n Code nodes block `require('crypto')`; `gen_random_bytes(32)` in a SQL CTE is the only sandboxed option |
 | 2026-11-05 | Use `json_agg` in SQL for list queries | n8n skips Code nodes with 0 input items, breaking the pipeline; aggregating in SQL guarantees exactly 1 output row |
+| 2026-11-05 | Consolidate all tools into one `mcp.ask-ops` workflow | Easier to demo on one canvas; `scripts/build_mcp_workflow.py` regenerates it; webhook paths unchanged so curl tests still work |
+| 2026-11-05 | SQL templates referencing original user input must use `$('Normalize Input N')` not `$json` | After Get Identity runs, `$json` = identity row (no user fields); node references access any prior node's output |
 
 ## Risks and open questions
 
