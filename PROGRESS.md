@@ -13,13 +13,13 @@ Status key: [ ] not started · [~] in progress · [x] done
 
 ## Phase 1: Tools (n8n MCP server), tested with curl before Copilot
 - [ ] MCP Server Trigger workflow exposing tools
-- [ ] Shared sub-workflow: `current_identity()` + `tool_calls` logging + error mapping
-- [ ] get_my_profile, get_pto_balance, get_my_requests
-- [ ] request_pto (balance + policy check, token, email)
-- [ ] list_pending_pto, decide_pto (HR only)
-- [ ] create_ticket, get_ticket_status
-- [ ] get_compensation (verify employee gets `denied`)
-- [ ] escalate_to_human, submit_feedback
+- [x] Shared sub-workflow: `current_identity()` + `tool_calls` logging + error mapping (lib.identity-and-log; pattern embedded in every tool)
+- [x] get_my_profile, get_pto_balance, get_my_requests
+- [x] request_pto (balance + weekday + overlap check; pgcrypto token hash stored; email in Phase 2)
+- [x] list_pending_pto, decide_pto (HR only; denial logged as `denied` via Postgres DO block)
+- [x] create_ticket, get_ticket_status
+- [x] get_compensation (employee gets `denied`; HR gets salary)
+- [x] escalate_to_human, submit_feedback
 
 ## Phase 2: Email approval loop
 - [ ] Gmail App Password + SMTP credential
@@ -85,6 +85,9 @@ Status key: [ ] not started · [~] in progress · [x] done
 | 2026-11-04 | Gemini embeddings, 768 dims | Free tier; Supabase built-in embeddings no longer available |
 | 2026-11-04 | Build locally with Docker Compose, then deploy | Same images as Railway; workflows move as JSON |
 | 2026-11-04 | Claude Code as coding agent | Reads CLAUDE.md, works with Docker/psql from terminal |
+| 2026-11-05 | HR access checks in Postgres DO blocks, not Code nodes | n8n's sandbox strips everything before the first `:` from thrown Error messages, so `CODE:` prefixes in Code node throws are lost; DO blocks preserve the full message in `item.json.message` |
+| 2026-11-05 | pgcrypto enabled at DB init for PTO token generation | n8n Code nodes block `require('crypto')`; `gen_random_bytes(32)` in a SQL CTE is the only sandboxed option |
+| 2026-11-05 | Use `json_agg` in SQL for list queries | n8n skips Code nodes with 0 input items, breaking the pipeline; aggregating in SQL guarantees exactly 1 output row |
 
 ## Risks and open questions
 
