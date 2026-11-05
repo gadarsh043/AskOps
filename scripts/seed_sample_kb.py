@@ -146,22 +146,30 @@ def embed(text):
     return '[' + ','.join(str(v) for v in vals) + ']'
 
 
-# ── Postgres via docker compose exec ──────────────────────────────────────────
+# ── Postgres (docker compose locally, or external URL via RAILWAY_POSTGRES_URL) ─
 import subprocess
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+RAILWAY_URL  = os.environ.get('RAILWAY_POSTGRES_URL', '')
 
 def psql(sql):
-    result = subprocess.run(
-        ['docker', 'compose', 'exec', '-T', 'postgres', 'sh', '-c',
-         'PGPASSWORD="$APP_DB_PASSWORD" psql -h localhost -U askops_app -d askops -t -A'],
-        input=sql, capture_output=True, text=True, cwd=PROJECT_ROOT
-    )
+    if RAILWAY_URL:
+        # Use external psql against Railway — connect as postgres (superuser)
+        # then switch role to askops_app via SET ROLE for permission checking
+        wrapped = f"SET ROLE askops_app;\n{sql}"
+        result = subprocess.run(
+            ['psql', RAILWAY_URL, '-t', '-A', '-c', wrapped],
+            capture_output=True, text=True
+        )
+    else:
+        result = subprocess.run(
+            ['docker', 'compose', 'exec', '-T', 'postgres', 'sh', '-c',
+             'PGPASSWORD="$APP_DB_PASSWORD" psql -h localhost -U askops_app -d askops -t -A'],
+            input=sql, capture_output=True, text=True, cwd=PROJECT_ROOT
+        )
     if result.returncode != 0:
         raise RuntimeError(f'psql error: {result.stderr}')
-    # -t -A outputs each result row, then optionally a DML status line like "INSERT 0 1".
-    # For RETURNING queries, the first line is the returned value; take only that.
-    lines = [l for l in result.stdout.splitlines() if l.strip() and not l.startswith('INSERT') and not l.startswith('UPDATE') and not l.startswith('DELETE') and not l.startswith('SELECT')]
+    lines = [l for l in result.stdout.splitlines() if l.strip() and not l.startswith('INSERT') and not l.startswith('UPDATE') and not l.startswith('DELETE') and not l.startswith('SELECT') and not l.startswith('SET')]
     return lines[0] if lines else result.stdout.strip()
 
 
