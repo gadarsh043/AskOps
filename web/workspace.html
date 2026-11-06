@@ -143,9 +143,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Dashboard
     </a>
-    <a href="setup.html" class="header-link" onclick="localStorage.clear()">
+    <a href="setup.html" class="header-link" onclick="Object.keys(localStorage).filter(k=>k.startsWith('askops_')).forEach(k=>localStorage.removeItem(k))">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
-      Reset
+      New demo
     </a>
     <div class="persona-pill" onclick="togglePersonaDropdown()" id="persona-pill">
       <svg id="persona-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
@@ -286,6 +286,13 @@ const workspaceId = localStorage.getItem('askops_workspace_id') || window.DEMO_W
 let currentPersona = localStorage.getItem('askops_persona') || 'EMP-042';
 let chatHistory = [];
 let isBusy = false;
+
+// Session start: used to filter trace panel to current session only
+const SESSION_KEY = 'askops_session_start';
+if (!localStorage.getItem(SESSION_KEY)) {
+  localStorage.setItem(SESSION_KEY, new Date().toISOString());
+}
+const sessionStart = new Date(localStorage.getItem(SESSION_KEY));
 
 // ── Chat persistence ──────────────────────────────────────────────────────────
 function getCacheKey() { return `askops_chat_${workspaceId}_${currentPersona}`; }
@@ -700,13 +707,20 @@ async function pollTrace() {
     const res = await fetch(`${API}/webhook/api-tool-trace?workspace_id=${workspaceId}`);
     if (!res.ok) return;
     const data = await res.json();
-    const calls = (data.calls || data.rows || []).slice(0, 10);
-    if (!calls.length) return;
+    // Only show calls from the current session
+    const allCalls = (data.calls || data.rows || [])
+      .filter(c => new Date(c.created_at) >= sessionStart)
+      .slice(0, 20);
+    if (!allCalls.length) return;
     const firstLoad = seenTraceIds.size === 0;
-    const newItems = calls.filter(c => !seenTraceIds.has(c.id));
+    const newItems = allCalls.filter(c => !seenTraceIds.has(c.id));
     newItems.forEach(c => seenTraceIds.add(c.id));
     if (!newItems.length) return;
-    if (firstLoad) traceEl.innerHTML = '';
+    if (firstLoad) {
+      // Clear the placeholder text on first real data
+      const empty = traceEl.querySelector('.trace-empty');
+      if (empty) empty.remove();
+    }
     newItems.reverse().forEach(c => {
       const sc = c.status === 'success' ? 'status-success' : c.status === 'denied' ? 'status-denied' : 'status-error';
       const div = document.createElement('div');

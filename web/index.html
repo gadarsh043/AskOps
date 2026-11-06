@@ -211,7 +211,7 @@ footer{border-top:1px solid var(--bd);padding:28px 40px;display:flex;align-items
   </div>
   <div class="nav-cta">
     <a href="workspace.html" class="btn-nav-ghost">Live demo</a>
-    <a href="setup.html" class="btn-nav">Get started</a>
+    <a href="setup.html" class="btn-nav" onclick="Object.keys(localStorage).filter(k=>k.startsWith('askops_')).forEach(k=>localStorage.removeItem(k))">Get started</a>
   </div>
 </nav>
 
@@ -225,7 +225,7 @@ footer{border-top:1px solid var(--bd);padding:28px 40px;display:flex;align-items
     <h1>Answer every<br>HR question <em>instantly.</em><br>Automate the rest.</h1>
     <p class="hero-sub">Connect your company website and get a working AI service desk in minutes. PTO requests, support tickets, policy answers — with role-based access enforced by the database, not the prompt.</p>
     <div class="hero-actions">
-      <a href="setup.html" class="btn-primary">
+      <a href="setup.html" class="btn-primary" onclick="Object.keys(localStorage).filter(k=>k.startsWith('askops_')).forEach(k=>localStorage.removeItem(k))">
         Get started
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
@@ -461,7 +461,7 @@ footer{border-top:1px solid var(--bd);padding:28px 40px;display:flex;align-items
   <h2 class="reveal">Set up your first agent in minutes</h2>
   <p class="reveal">No configuration files, no deployment pipelines. Enter a URL and start chatting.</p>
   <div class="cta-actions reveal">
-    <a href="setup.html" class="btn-primary">
+    <a href="setup.html" class="btn-primary" onclick="Object.keys(localStorage).filter(k=>k.startsWith('askops_')).forEach(k=>localStorage.removeItem(k))">
       Get started
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </a>
