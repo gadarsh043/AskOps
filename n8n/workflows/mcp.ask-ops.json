@@ -1113,7 +1113,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "tool-request-pto",
-        "responseMode": "lastNode",
+        "responseMode": "responseNode",
         "options": {}
       }
     },
@@ -1233,7 +1233,7 @@
         3000
       ],
       "parameters": {
-        "jsCode": "const r = $input.first().json;\nconst ctx = $('Guard Check 7').first().json;\nconst baseUrl = r.webhook_url || 'http://localhost:5678';\nconst reviewUrl = baseUrl + '/webhook/pto-review?token=' + r.token_raw;\nconst html = `<!DOCTYPE html>\n<html><body style=\"font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px\">\n<h2 style=\"color:#1a56db\">PTO Request: Approval Needed</h2>\n<p>Hi Manager,</p>\n<p><strong>${r.employee_name}</strong> has requested time off:</p>\n<table style=\"border-collapse:collapse;width:100%;margin:20px 0\">\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Dates</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.start_date} \u2192 ${ctx.end_date}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Days</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.days}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reason</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.reason}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reference</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.code}</td></tr>\n</table>\n<a href=\"${reviewUrl}\" style=\"display:inline-block;padding:12px 28px;background:#1a56db;color:#fff;text-decoration:none;border-radius:6px;font-size:16px\">Review Request</a>\n<p style=\"color:#888;font-size:12px;margin-top:32px\">This link expires in 48 hours. Powered by AskOps \u2014 ${r.company_name}</p>\n</body></html>`;\nreturn [{ json: {\n  email_to: r.demo_manager_email,\n  email_subject: '[AskOps] PTO request from ' + r.employee_name + ': ' + r.code,\n  email_html: html,\n  code: r.code, days: r.days, status: r.status,\n  start_date: ctx.start_date, end_date: ctx.end_date\n}}];"
+        "jsCode": "const r = $('Insert PTO 7').first().json;\nconst ctx = $('Guard Check 7').first().json;\nconst baseUrl = r.webhook_url || 'http://localhost:5678';\nconst reviewUrl = baseUrl + '/webhook/pto-review?token=' + r.token_raw;\nconst html = `<!DOCTYPE html>\n<html><body style=\"font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px\">\n<h2 style=\"color:#1a56db\">PTO Request: Approval Needed</h2>\n<p>Hi Manager,</p>\n<p><strong>${r.employee_name}</strong> has requested time off:</p>\n<table style=\"border-collapse:collapse;width:100%;margin:20px 0\">\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Dates</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.start_date} \u2192 ${ctx.end_date}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Days</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.days}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reason</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${ctx.reason}</td></tr>\n  <tr><td style=\"padding:8px;border:1px solid #ddd;background:#f9f9f9\"><strong>Reference</strong></td>\n      <td style=\"padding:8px;border:1px solid #ddd\">${r.code}</td></tr>\n</table>\n<a href=\"${reviewUrl}\" style=\"display:inline-block;padding:12px 28px;background:#1a56db;color:#fff;text-decoration:none;border-radius:6px;font-size:16px\">Review Request</a>\n<p style=\"color:#888;font-size:12px;margin-top:32px\">This link expires in 48 hours. Powered by AskOps \u2014 ${r.company_name}</p>\n</body></html>`;\nreturn [{ json: {\n  email_to: r.demo_manager_email,\n  email_subject: '[AskOps] PTO request from ' + r.employee_name + ': ' + r.code,\n  email_html: html,\n  code: r.code, days: r.days, status: r.status,\n  start_date: ctx.start_date, end_date: ctx.end_date\n}}];"
       },
       "onError": "continueErrorOutput"
     },
@@ -1272,7 +1272,7 @@
         3000
       ],
       "parameters": {
-        "jsCode": "const r = $('Build Email Content 7').first().json;\nconst body = $('Normalize Input 7').first().json;\nconst out = { code: r.code, days: r.days, status: r.status,\n              start_date: r.start_date, end_date: r.end_date,\n              message: 'PTO request submitted. Your manager will receive an approval email shortly.' };\nreturn [{ json: { ...out, _out: out, _tool_name: 'request_pto',\n  _in: { start_date: body.start_date, end_date: body.end_date, reason: body.reason },\n  _status: 'success', _error: null } }];"
+        "jsCode": "const r = $('Insert PTO 7').first().json;\nconst ctx = $('Guard Check 7').first().json;\nconst body = $('Normalize Input 7').first().json;\nconst out = { code: r.code, days: r.days, status: r.status,\n              start_date: ctx.start_date, end_date: ctx.end_date,\n              message: 'PTO request submitted. Your manager will receive an approval email shortly.' };\nreturn [{ json: { ...out, _out: out, _tool_name: 'request_pto',\n  _in: { start_date: body.start_date, end_date: body.end_date, reason: body.reason },\n  _status: 'success', _error: null } }];"
       }
     },
     {
@@ -2802,6 +2802,20 @@
       "parameters": {
         "jsCode": "const d = $('Handle Error 14').first().json;\nreturn [{ json: { error: d.error } }];"
       }
+    },
+    {
+      "id": "rpto-respond-7",
+      "name": "Respond to Webhook 7",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2860,
+        3110
+      ],
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -3594,7 +3608,7 @@
       "main": [
         [
           {
-            "node": "Build Email Content 7",
+            "node": "Format Output 7",
             "type": "main",
             "index": 0
           }
@@ -3617,31 +3631,13 @@
             "index": 0
           }
         ],
-        [
-          {
-            "node": "Handle Error 7",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Send Approval Email 7": {
       "main": [
-        [
-          {
-            "node": "Format Output 7",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Format Output 7",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [],
+        []
       ]
     },
     "Format Output 7": {
@@ -4541,6 +4537,28 @@
         [
           {
             "node": "Return Error 14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Output 7": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook 7": {
+      "main": [
+        [
+          {
+            "node": "Build Email Content 7",
             "type": "main",
             "index": 0
           }
