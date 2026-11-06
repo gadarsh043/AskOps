@@ -21,6 +21,7 @@
 13. [How the Demo Flow Works](#13-how-the-demo-flow-works)
 14. [What Can Be Added in the Future](#14-future-additions)
 15. [Glossary — Plain English Definitions](#15-glossary)
+16. [Microsoft Copilot Studio — Setup and Integration](#16-microsoft-copilot-studio)
 
 ---
 
@@ -1123,6 +1124,139 @@ Currently any HTTP client can call the webhooks. Production would add:
 **Webhook** — An HTTP endpoint that fires when called. Instead of polling (checking every second), you register a URL and the system calls it when something happens.
 
 **Workspace** — One "company session" in AskOps. Everything (employees, documents, PTO requests, tickets) belongs to a workspace. Workspaces expire after 24 hours.
+
+---
+
+## 16. Microsoft Copilot Studio
+
+### What is Copilot Studio?
+
+Microsoft Copilot Studio is a **low-code AI agent builder**. It is the product this job is about — the company builds AI agents using tools like this. It lets you create a chatbot by clicking through a visual interface instead of writing code, then publish it to Teams, a website, or any channel with one click.
+
+It is built on top of Microsoft Power Platform. Under the hood, it uses Azure OpenAI's models for the conversation layer and Power Automate (or HTTP Actions) to call external systems.
+
+### Why we use it in AskOps
+
+The demo has two chat interfaces side by side:
+
+1. **Demo Chat** — our own custom chat UI built in `workspace.html`. Shows the raw n8n tool calls in the trace panel. Good for explaining the technical internals.
+
+2. **Copilot Studio** — an embedded iframe of the Copilot Studio agent. Shows a professional, production-quality chat interface. Good for showing what the final product looks like to employees.
+
+Both tabs call the **same n8n backend**. Every tool call from either tab is logged to the same `tool_calls` table. The trace panel on the right shows calls from both — which means you can demo in Copilot Studio and the trace panel still lights up.
+
+This design answers the most common interview question: "Could this run in a real company?" Yes — Copilot Studio is already deployed in enterprises, and ours is connected to real database actions.
+
+### How Copilot Studio connects to n8n
+
+Copilot Studio has a feature called **HTTP Actions** (also called "Actions" in the interface). Each HTTP Action is a tool you define by giving it:
+- A name and description (the AI reads this to decide when to use it)
+- An HTTP method (`POST`) and URL (our n8n webhook URL)
+- A JSON schema for the inputs
+
+Once you add an HTTP Action, the Copilot Studio agent can call it during conversation — just like our custom chat calls tools.
+
+The 11 tools map to 11 webhook URLs:
+
+| Tool | Webhook URL |
+|---|---|
+| `get_my_profile` | `POST /webhook/tool-get-my-profile` |
+| `get_pto_balance` | `POST /webhook/tool-get-pto-balance` |
+| `get_my_requests` | `POST /webhook/tool-get-my-requests` |
+| `request_pto` | `POST /webhook/tool-request-pto` |
+| `create_ticket` | `POST /webhook/tool-create-ticket` |
+| `get_ticket_status` | `POST /webhook/tool-get-ticket-status` |
+| `get_compensation` | `POST /webhook/tool-get-compensation` |
+| `list_pending_pto` | `POST /webhook/tool-list-pending-pto` |
+| `decide_pto` | `POST /webhook/tool-decide-pto` |
+| `escalate_to_human` | `POST /webhook/tool-escalate-to-human` |
+| `submit_feedback` | `POST /webhook/tool-submit-feedback` |
+| `search_kb` | `POST /webhook/tool-search-kb` |
+
+All URLs point to `https://n8n-production-20f8.up.railway.app`.
+
+There is also an **MCP (Model Context Protocol)** option. The n8n `mcp.ask-ops` workflow exposes an MCP Server Trigger. If Copilot Studio supports MCP (it is being added in 2025), you would point it at the MCP endpoint and it discovers all 11 tools automatically without defining them one by one. For the current demo, HTTP Actions are more reliable.
+
+### Why Copilot Studio is relevant to this job
+
+The company builds low-code AI agents. Copilot Studio is a primary tool in that ecosystem. By showing:
+- A Copilot Studio agent that is configured and published
+- Connected to a real backend via HTTP Actions
+- Producing real tool call traces on the dashboard
+
+...you demonstrate that you understand not just the AI theory but the actual product the company ships with. You are not just a demo builder — you are showing you know the tool.
+
+### Account setup — do this the night before the interview
+
+Copilot Studio requires a **Microsoft work or school account**. Personal Gmail and college accounts often lack the right permissions. Here is the exact path that works:
+
+#### Step 1 — Create a fresh Outlook.com email (2 minutes)
+
+Go to **outlook.live.com → Create free account**.
+
+Pick something memorable: `adarsh.askops@outlook.com` (or similar).
+
+This gives you a personal Microsoft account which you will use to bootstrap the tenant.
+
+#### Step 2 — Create a free Microsoft 365 Business trial tenant (3 minutes)
+
+Go to: **microsoft.com/en-us/microsoft-365/business/compare-all-plans**
+
+Click **"Try free"** under **Microsoft 365 Business Basic**.
+
+When it asks for an email, enter the new `outlook.com` address you just created.
+
+It will say **"Set up your account"** and ask for:
+- Your name
+- Company name → type `AskOps Demo`
+- It auto-generates a domain: `askopsdemo.onmicrosoft.com`
+- Create a username: `admin@askopsdemo.onmicrosoft.com`
+- Set a password
+
+You are now a **Global Admin of your own tenant**. This is a real work account — Copilot Studio accepts it.
+
+> No credit card is needed in many regions. If it asks, you can cancel before day 30. The trial is 30 days.
+
+#### Step 3 — Activate Copilot Studio (1 minute)
+
+Go to **copilotstudio.microsoft.com**.
+
+Sign in with `admin@askopsdemo.onmicrosoft.com` and the password you set.
+
+Click **"Start free trial"** — this gives you **25,000 messages/month for 60 days**, enough for any demo.
+
+#### Step 4 — Create the AskOps agent
+
+1. Click **New agent** → name it **AskOps**
+2. In **Instructions**, paste the content from `copilot/instructions.md` in this repo
+3. Go to **Actions** → **Add an action** → **New HTTP action**
+4. Add each of the 11 tool webhooks (table above). For each one:
+   - Name: tool name (e.g. `get_pto_balance`)
+   - Description: what the tool does (e.g. "Returns the employee's remaining PTO days")
+   - URL: the full Railway webhook URL
+   - Method: POST
+   - If the tool takes inputs (like `request_pto` taking `start_date`, `end_date`, `reason`), define them in the input schema
+5. Click **Save** (save works now because you are the admin)
+
+#### Step 5 — Publish and get the embed URL
+
+1. Click **Publish** in the top right
+2. Go to **Channels** → **Custom website** (also called "Demo website")
+3. Copy the embed snippet — it looks like:
+   ```html
+   <iframe src="https://copilotstudio.microsoft.com/environments/.../bots/.../webchat?..." ...></iframe>
+   ```
+4. Copy the full `src` URL
+5. Paste it into AskOps workspace → Copilot Studio tab → Load
+
+The trace panel will show tool calls from Copilot Studio alongside the Demo Chat calls because they both write to the same `tool_calls` table in Postgres.
+
+### What to do if Copilot Studio goes down during the interview
+
+Copilot Studio has had reliability issues. If it doesn't load:
+- Switch to the **Demo Chat** tab — it has the full tool trace and all the same functionality
+- Say: "The Copilot Studio embed occasionally has iframe restrictions — let me show you the same agent through our direct interface. The backend and trace are identical."
+- The interviewer cares about the architecture, not the specific UI
 
 ---
 
